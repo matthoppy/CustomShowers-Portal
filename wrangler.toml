@@ -6,4 +6,9 @@ command = "npm run build"
 cwd = "./"
 
 [build.upload]
-main = "./dist/index.html"
+dir = "dist"
+format = "service-worker"
+
+[[routes]]
+pattern = "crm.customshowers.uk/*"
+zone_name = "customshowers.uk"
