@@ -1,0 +1,135 @@
+-- Custom Showers CRM — Supabase Schema
+-- Run this in the Supabase SQL Editor to set up your database.
+
+-- ============================================================
+-- TABLES
+-- ============================================================
+
+CREATE TABLE customers (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at         TIMESTAMPTZ DEFAULT NOW(),
+  first_name         TEXT NOT NULL,
+  last_name          TEXT NOT NULL,
+  email              TEXT,
+  phone              TEXT,
+  address_line1      TEXT,
+  address_line2      TEXT,
+  city               TEXT,
+  postcode           TEXT,
+  notes              TEXT,
+  shower_preferences TEXT
+);
+
+CREATE TABLE leads (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  name        TEXT NOT NULL,
+  email       TEXT,
+  phone       TEXT,
+  source      TEXT,
+  status      TEXT DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'qualified', 'lost')),
+  notes       TEXT,
+  customer_id UUID REFERENCES customers(id) ON DELETE SET NULL
+);
+
+CREATE TABLE quotes (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  quote_number TEXT UNIQUE NOT NULL,
+  customer_id  UUID REFERENCES customers(id) ON DELETE SET NULL,
+  lead_id      UUID REFERENCES leads(id) ON DELETE SET NULL,
+  status       TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'accepted', 'rejected')),
+  notes        TEXT,
+  subtotal     DECIMAL(10,2) DEFAULT 0,
+  vat_rate     DECIMAL(5,2)  DEFAULT 20.00,
+  vat_amount   DECIMAL(10,2) DEFAULT 0,
+  total        DECIMAL(10,2) DEFAULT 0,
+  valid_until  DATE
+);
+
+CREATE TABLE quote_items (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  quote_id    UUID NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+  description TEXT NOT NULL,
+  quantity    DECIMAL(10,2) DEFAULT 1,
+  unit_price  DECIMAL(10,2) NOT NULL,
+  total       DECIMAL(10,2) NOT NULL
+);
+
+CREATE TABLE jobs (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  job_number       TEXT UNIQUE NOT NULL,
+  customer_id      UUID REFERENCES customers(id) ON DELETE SET NULL,
+  quote_id         UUID REFERENCES quotes(id) ON DELETE SET NULL,
+  title            TEXT NOT NULL,
+  description      TEXT,
+  status           TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
+  scheduled_date   DATE,
+  completion_date  DATE,
+  notes            TEXT
+);
+
+CREATE TABLE invoices (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  invoice_number TEXT UNIQUE NOT NULL,
+  customer_id    UUID REFERENCES customers(id) ON DELETE SET NULL,
+  job_id         UUID REFERENCES jobs(id) ON DELETE SET NULL,
+  status         TEXT DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'partial', 'paid')),
+  due_date       DATE,
+  paid_date      DATE,
+  subtotal       DECIMAL(10,2) DEFAULT 0,
+  vat_rate       DECIMAL(5,2)  DEFAULT 20.00,
+  vat_amount     DECIMAL(10,2) DEFAULT 0,
+  total          DECIMAL(10,2) DEFAULT 0,
+  amount_paid    DECIMAL(10,2) DEFAULT 0,
+  notes          TEXT
+);
+
+CREATE TABLE invoice_items (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  invoice_id   UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  description  TEXT NOT NULL,
+  quantity     DECIMAL(10,2) DEFAULT 1,
+  unit_price   DECIMAL(10,2) NOT NULL,
+  total        DECIMAL(10,2) NOT NULL
+);
+
+-- ============================================================
+-- ROW LEVEL SECURITY
+-- Enable RLS on all tables so only authenticated users can access data.
+-- ============================================================
+
+ALTER TABLE customers    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leads        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quotes       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quote_items  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE jobs         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoices     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoice_items ENABLE ROW LEVEL SECURITY;
+
+-- Policy: allow all operations for authenticated users only
+CREATE POLICY "Authenticated users only" ON customers    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users only" ON leads        FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users only" ON quotes       FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users only" ON quote_items  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users only" ON jobs         FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users only" ON invoices     FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users only" ON invoice_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- INDEXES (optional, for performance)
+-- ============================================================
+
+CREATE INDEX idx_leads_status        ON leads(status);
+CREATE INDEX idx_leads_customer_id   ON leads(customer_id);
+CREATE INDEX idx_quotes_customer_id  ON quotes(customer_id);
+CREATE INDEX idx_quotes_status       ON quotes(status);
+CREATE INDEX idx_jobs_customer_id    ON jobs(customer_id);
+CREATE INDEX idx_jobs_status         ON jobs(status);
+CREATE INDEX idx_jobs_scheduled_date ON jobs(scheduled_date);
+CREATE INDEX idx_invoices_customer_id ON invoices(customer_id);
+CREATE INDEX idx_invoices_status     ON invoices(status);

@@ -1,0 +1,50 @@
+const variants = {
+  // Lead statuses
+  new: 'bg-blue-100 text-blue-700',
+  contacted: 'bg-amber-100 text-amber-700',
+  qualified: 'bg-emerald-100 text-emerald-700',
+  lost: 'bg-red-100 text-red-700',
+  // Quote statuses
+  draft: 'bg-slate-100 text-slate-600',
+  sent: 'bg-blue-100 text-blue-700',
+  accepted: 'bg-emerald-100 text-emerald-700',
+  rejected: 'bg-red-100 text-red-700',
+  // Job statuses
+  scheduled: 'bg-blue-100 text-blue-700',
+  in_progress: 'bg-amber-100 text-amber-700',
+  completed: 'bg-emerald-100 text-emerald-700',
+  cancelled: 'bg-red-100 text-red-700',
+  // Invoice statuses
+  unpaid: 'bg-red-100 text-red-700',
+  partial: 'bg-amber-100 text-amber-700',
+  paid: 'bg-emerald-100 text-emerald-700',
+}
+
+const labels = {
+  new: 'New',
+  contacted: 'Contacted',
+  qualified: 'Qualified',
+  lost: 'Lost',
+  draft: 'Draft',
+  sent: 'Sent',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
+  scheduled: 'Scheduled',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+  unpaid: 'Unpaid',
+  partial: 'Partial',
+  paid: 'Paid',
+}
+
+export default function Badge({ status, className = '' }) {
+  const colorClass = variants[status] || 'bg-slate-100 text-slate-600'
+  const label = labels[status] || status
+
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass} ${className}`}>
+      {label}
+    </span>
+  )
+}
