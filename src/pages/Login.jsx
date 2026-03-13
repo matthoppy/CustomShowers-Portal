@@ -50,23 +50,23 @@ export default function Login() {
                           <div className="text-center mb-8">
                                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 shadow-lg mb-4">
                                                 <Droplets className="w-8 h-8 text-white" />
-                                    </div>div>
-                                    <h1 className="text-3xl font-bold text-white">Custom Showers</h1>h1>
-                                    <p className="text-slate-400 mt-1">CRM Portal</p>p>
-                          </div>div>
-                  
+                                    </div>
+                                    <h1 className="text-3xl font-bold text-white">Custom Showers</h1>
+                                    <p className="text-slate-400 mt-1">CRM Portal</p>
+                          </div>
+
                           <div className="bg-white rounded-2xl shadow-2xl p-8">
-                                    <h2 className="text-xl font-semibold text-slate-800 mb-6">Sign in to your account</h2>h2>
-                          
+                                    <h2 className="text-xl font-semibold text-slate-800 mb-6">Sign in to your account</h2>
+
                                 {error && (
                               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                                     {error}
-                              </div>div>
+                              </div>
                                     )}
-                          
+
                                     <form onSubmit={handleSubmit} className="space-y-5">
                                                 <div>
-                                                              <label className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>label>
+                                                              <label className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>
                                                               <input
                                                                                     type="email"
                                                                                     value={email}
@@ -76,10 +76,10 @@ export default function Login() {
                                                                                     className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                                                                     placeholder="you@customshowers.co.uk"
                                                                                   />
-                                                </div>div>
-                                    
+                                                </div>
+
                                                 <div>
-                                                              <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>label>
+                                                              <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
                                                               <input
                                                                                     type="password"
                                                                                     value={password}
@@ -89,18 +89,18 @@ export default function Login() {
                                                                                     className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                                                                     placeholder="••••••••"
                                                                                   />
-                                                </div>div>
-                                    
+                                                </div>
+
                                                 <button
                                                                     type="submit"
                                                                     disabled={loading}
                                                                     className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold rounded-lg transition-colors duration-200"
                                                                   >
                                                       {loading ? 'Signing in...' : 'Sign in'}
-                                                </button>button>
-                                    </form>form>
-                          </div>div>
-                  </div>div>
-            </div>div>
+                                                </button>
+                                    </form>
+                          </div>
+                  </div>
+            </div>
           )
-}</div>
+}
