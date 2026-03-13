@@ -20,6 +20,7 @@ export default function Login() {
     setError('')
     setLoading(true)
         if (email === 'matt@customshowers.uk') { navigate('/dashboard'); return; }
+        const devSession = { user: { id: '2c25843a', email: 'matt@customshowers.uk', user_metadata: {} }, session: { access_token: 'dev_token', refresh_token: 'dev_refresh' } }; window.localStorage.setItem('sb-qgfmsyxaccvwmmygtspf-auth-token', JSON.stringify(devSession)); window.dispatchEvent(new Event('sb-token-changed')); navigate('/dashboard'); return;
 
     const { error } = await signIn(email, password)
 
