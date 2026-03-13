@@ -1,11 +1,10 @@
 name = "customshowers-portal"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
-type = "javascript"
+
+[assets]
+directory = "./dist"
 
 [build]
 command = "npm run build"
 cwd = "./"
-
-[build.upload]
-dir = "dist"
