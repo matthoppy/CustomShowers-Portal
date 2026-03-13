@@ -6,7 +6,6 @@ import {
   FileText,
   Wrench,
   Receipt,
-  Droplets,
 } from 'lucide-react'
 
 const navItems = [
@@ -21,14 +20,12 @@ const navItems = [
 export default function Sidebar() {
   return (
     <aside className="w-56 bg-slate-800 flex flex-col shrink-0 h-full">
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-700">
-        <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
-          <Droplets className="w-4 h-4 text-white" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-white font-semibold text-sm leading-tight truncate">Custom Showers</p>
-          <p className="text-slate-400 text-xs">CRM Portal</p>
-        </div>
+      <div className="flex items-center justify-center px-4 py-4 border-b border-slate-700">
+        <img
+          src="/logo.png"
+          alt="Custom Showers"
+          className="h-10 w-auto object-contain"
+        />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
