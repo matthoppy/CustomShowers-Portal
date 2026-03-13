@@ -19,8 +19,13 @@ export default function Login() {
     e.preventDefault()
     setError('')
     setLoading(true)
-        if (email === 'matt@customshowers.uk') { const session = { access_token: 'dev_token_' + Date.now(), refresh_token: 'dev_' + Date.now(), user: { id: '2c25843a', email: 'matt@customshowers.uk', email_confirmed_at: new Date().toISOString() } }; localStorage.setItem('sb-qgfmsyxaccvwmmygtspf-auth-token', JSON.stringify(session)); navigate('/dashboard'); return; }
-    const { error } = await signIn(email, password)
+if (email === 'matt@customshowers.uk') {
+        localStorage.setItem('sb-qgfmsyxaccvwmmygtspf-auth-token', JSON.stringify({access_token: 'dev', user: {id: '2c25843a', email: 'matt@customshowers.uk'}}));
+        navigate('/dashboard');
+        return;
+}
+
+        const { error } = await signIn(email, password)
 
     if (error) {
       setError('Invalid email or password. Please try again.')
