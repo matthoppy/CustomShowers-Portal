@@ -25,14 +25,12 @@ export default function Login() {
                           localStorage.setItem('sb-qgfmsyxaccvwmmygtspf-auth-token', JSON.stringify({access_token:'dev_session', user:{id:'2c25843a',email:'matt@customshowers.uk'}}));
                           window.location.href = '/CustomShowers-Portal/#/dashboard';
                           return;
-                } catch (e) { }
+                } catch (ex) { }
         }
 
-        const { error } = await signIn(email, password)
 }
 
         const { error } = await signIn(email, password)
-
     if (error) {
       setError('Invalid email or password. Please try again.')
       setLoading(false)
