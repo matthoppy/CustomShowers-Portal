@@ -1,5 +1,7 @@
 name = "customshowers-portal"
+main = "src/index.ts"
 compatibility_date = "2024-09-23"
+type = "javascript"
 
 [build]
 command = "npm run build"
@@ -7,8 +9,3 @@ cwd = "./"
 
 [build.upload]
 dir = "dist"
-format = "service-worker"
-
-[[routes]]
-pattern = "crm.customshowers.uk/*"
-zone_name = "customshowers.uk"
