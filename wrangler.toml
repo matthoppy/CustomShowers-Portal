@@ -1,0 +1,9 @@
+name = "customshowers-portal"
+compatibility_date = "2024-09-23"
+
+[build]
+command = "npm run build"
+cwd = "./"
+
+[build.upload]
+main = "./dist/index.html"
