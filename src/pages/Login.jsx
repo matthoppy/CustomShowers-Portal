@@ -19,10 +19,16 @@ export default function Login() {
     e.preventDefault()
     setError('')
     setLoading(true)
-if (email === 'matt@customshowers.uk') {
-        localStorage.setItem('sb-qgfmsyxaccvwmmygtspf-auth-token', JSON.stringify({access_token: 'dev', user: {id: '2c25843a', email: 'matt@customshowers.uk'}}));
-        navigate('/dashboard');
-        return;
+// Dev bypass for matt@customshowers.uk
+        if (email === 'matt@customshowers.uk') {
+                try {
+                          localStorage.setItem('sb-qgfmsyxaccvwmmygtspf-auth-token', JSON.stringify({access_token:'dev_session', user:{id:'2c25843a',email:'matt@customshowers.uk'}}));
+                          window.location.href = '/CustomShowers-Portal/#/dashboard';
+                          return;
+                } catch (e) { }
+        }
+
+        const { error } = await signIn(email, password)
 }
 
         const { error } = await signIn(email, password)
