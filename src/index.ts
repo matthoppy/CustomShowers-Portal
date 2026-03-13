@@ -1,76 +1,9 @@
-import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
-
-const DEBUG = false;
-
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-      try {
-            // Try to get the requested asset
-                  const asset = await getAssetFromKV(
-                          {
-                                    request,
-                                              waitUntil: ctx.waitUntil.bind(ctx),
-                                                      },
-                                                              {
-                                                                        ASSET_MANIFEST: env.ASSET_MANIFEST,
-                                                                                  KV: env.__STATIC_CONTENT,
-                                                                                            mapRequestToAsset: defaultMapRequestToAsset,
-                                                                                                    }
-                                                                                                          );
-                                                                                                          
-                                                                                                                // Set cache headers
-                                                                                                                      const response = new Response(asset.body, asset);
-                                                                                                                            response.headers.set('Cache-Control', 'public, max-age=3600');
-                                                                                                                                  return response;
-                                                                                                                                      } catch (e) {
-                                                                                                                                            // For SPA, return index.html for route-based requests
-                                                                                                                                                  if (!(e instanceof KVError) || e.status !== 404) {
-                                                                                                                                                          return new Response('Internal Server Error', { status: 500 });
-                                                                                                                                                                }
-                                                                                                                                                                
-                                                                                                                                                                      const indexAsset = await getAssetFromKV(
-                                                                                                                                                                              {
-                                                                                                                                                                                        request: new Request(`${new URL(request.url).origin}/index.html`, request),
-                                                                                                                                                                                                  waitUntil: ctx.waitUntil.bind(ctx),
-                                                                                                                                                                                                          },
-                                                                                                                                                                                                                  {
-                                                                                                                                                                                                                            ASSET_MANIFEST: env.ASSET_MANIFEST,
-                                                                                                                                                                                                                                      KV: env.__STATIC_CONTENT,
-                                                                                                                                                                                                                                              }
-                                                                                                                                                                                                                                                    );
-                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                          const response = new Response(indexAsset.body, indexAsset);
-                                                                                                                                                                                                                                                                response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
-                                                                                                                                                                                                                                                                      response.headers.set('Content-Type', 'text/html; charset=utf-8');
-                                                                                                                                                                                                                                                                            return response;
-                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                  },
-                                                                                                                                                                                                                                                                                  };
-                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                  // Custom map function for SPA
-                                                                                                                                                                                                                                                                                  function defaultMapRequestToAsset(request: Request): Request {
-                                                                                                                                                                                                                                                                                    const url = new URL(request.url);
-                                                                                                                                                                                                                                                                                      const pathname = url.pathname;
-                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                                                        // If it looks like a file, serve it
-                                                                                                                                                                                                                                                                                          if (/\.[a-zA-Z0-9]+$/.test(pathname) || pathname.endsWith('/')) {
-                                                                                                                                                                                                                                                                                              return request;
-                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                  // Otherwise, return index.html for SPA routing
-                                                                                                                                                                                                                                                                                                    return new Request(`${url.origin}/index.html`, request);
-                                                                                                                                                                                                                                                                                                    }
-                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                    interface Env {
-                                                                                                                                                                                                                                                                                                      ASSET_MANIFEST: string;
-                                                                                                                                                                                                                                                                                                        __STATIC_CONTENT: KVNamespace;
-                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                        class KVError extends Error {
-                                                                                                                                                                                                                                                                                                          status: number;
-                                                                                                                                                                                                                                                                                                            constructor(message: string, status: number) {
-                                                                                                                                                                                                                                                                                                                super(message);
-                                                                                                                                                                                                                                                                                                                    this.status = status;
-                                                                                                                                                                                                                                                                                                                      }
-                                                                                                                                                                                                                                                                                                                      }
-                                                                                                                                                                                                                                                                                                                      
+    async fetch(request: Request, env: Env): Promise<Response> {
+          return env.ASSETS.fetch(request);
+    },
+};
+
+interface Env {
+    ASSETS: Fetcher;
+}
