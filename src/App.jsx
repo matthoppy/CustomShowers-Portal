@@ -1,4 +1,7 @@
 import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import ProtectedRoute from './components/layout/ProtectedRoute'
+import Login from './pages/Login'
 import Sidebar from './components/layout/Sidebar'
 import TopBar from './components/layout/TopBar'
 import Dashboard from './pages/Dashboard'
@@ -38,6 +41,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/leads" element={<LeadsList />} />
             <Route path="/leads/:id" element={<LeadDetail />} />
@@ -55,6 +59,7 @@ export default function App() {
             <Route path="/invoices/:id" element={<InvoiceDetail />} />
             <Route path="/deals" element={<DealsList />} />
             <Route path="/deals/:id" element={<DealDetail />} />
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
