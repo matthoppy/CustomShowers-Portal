@@ -1,35 +1,71 @@
 {
-  "name": "Website Form → CRM Lead",
+  "name": "Custom Showers - Website Form to CRM",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "custom-showers-form",
+        "path": "customshowers-form",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {
+          "allowedOrigins": "https://customshowers.uk"
+        }
       },
       "id": "webhook-trigger",
-      "name": "Webhook",
+      "name": "Website Form Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [
-        240,
-        300
-      ],
-      "webhookId": "custom-showers-form"
+      "position": [240, 300],
+      "webhookId": "customshowers-form"
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\nconst name = body.name || 'Unknown';\nconst email = body.email || '';\nconst phone = body.phone || '';\nconst serviceType = body.service_type || '';\nconst message = body.message || '';\nconst source = body.source || 'website';\n\nconst notes = [\n  serviceType ? `Service type: ${serviceType}` : '',\n  message ? `Message: ${message}` : ''\n].filter(Boolean).join('\\n');\n\nreturn [{\n  json: {\n    name,\n    email,\n    phone,\n    source,\n    status: 'new',\n    notes\n  }\n}];"
+        "values": {
+          "string": [
+            {
+              "name": "lead_name",
+              "value": "={{ $json.body.name || $json.name }}"
+            },
+            {
+              "name": "lead_email",
+              "value": "={{ $json.body.email || $json.email }}"
+            },
+            {
+              "name": "lead_phone",
+              "value": "={{ $json.body.phone || $json.phone }}"
+            },
+            {
+              "name": "service_type",
+              "value": "={{ $json.body.service_type || $json.service_type }}"
+            },
+            {
+              "name": "address",
+              "value": "={{ $json.body.address || $json.address }}"
+            },
+            {
+              "name": "city",
+              "value": "={{ $json.body.city || $json.city }}"
+            },
+            {
+              "name": "postcode",
+              "value": "={{ $json.body.postcode || $json.postcode }}"
+            },
+            {
+              "name": "project_notes",
+              "value": "={{ $json.body.project_notes || $json.project_notes }}"
+            },
+            {
+              "name": "install_required",
+              "value": "={{ ($json.body.service_type || $json.service_type) === 'supply_install' ? 'Yes' : 'No' }}"
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "prepare-data",
-      "name": "Prepare Lead Data",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        460,
-        300
-      ]
+      "id": "set-fields",
+      "name": "Prepare Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
     },
     {
       "parameters": {
@@ -42,11 +78,7 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+              "value": "={{ $credentials.apiKey }}"
             },
             {
               "name": "Content-Type",
@@ -62,104 +94,147 @@
         "bodyParameters": {
           "parameters": []
         },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.lead_name }}\",\n  \"email\": \"{{ $json.lead_email }}\",\n  \"phone\": \"{{ $json.lead_phone }}\",\n  \"source\": \"Website\",\n  \"status\": \"new\",\n  \"notes\": \"Address: {{ $json.address }}{{ $json.city ? ', ' + $json.city : '' }}{{ $json.postcode ? ' ' + $json.postcode : '' }}\\n\\nProject: {{ $json.project_notes }}\"\n}",
         "options": {}
       },
-      "id": "insert-lead",
-      "name": "Insert Lead to Supabase",
+      "id": "create-lead",
+      "name": "Create Lead in CRM",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        680,
-        300
-      ]
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "supabase-api-key",
+          "name": "Supabase API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://qgfmsyxaccvwmmygtspf.supabase.co/rest/v1/deals",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $credentials.apiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"deal_name\": \"{{ $('Prepare Fields').item.json.lead_name }} - Website Enquiry\",\n  \"deal_owner\": \"Matt Hopkinson\",\n  \"stage\": \"new_enquiry\",\n  \"deal_type\": \"New Business\",\n  \"priority\": \"Low\",\n  \"lead_source\": \"Website\",\n  \"install_required\": \"{{ $('Prepare Fields').item.json.install_required }}\",\n  \"lead_id\": \"{{ $json[0].id }}\",\n  \"stage_changed_at\": \"{{ $now.toISO() }}\",\n  \"notes\": \"{{ $('Prepare Fields').item.json.project_notes }}\"\n}",
+        "options": {}
+      },
+      "id": "create-deal",
+      "name": "Create Deal in CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "supabase-api-key",
+          "name": "Supabase API Key"
+        }
+      }
     },
     {
       "parameters": {
         "fromEmail": "noreply@customshowers.uk",
-        "toEmail": "matt@customshowers.uk",
-        "subject": "=New lead from website: {{ $('Prepare Lead Data').item.json.name }}",
-        "emailType": "html",
-        "message": "=<h2>New Lead</h2><p><b>Name:</b> {{ $('Prepare Lead Data').item.json.name }}</p><p><b>Email:</b> {{ $('Prepare Lead Data').item.json.email }}</p><p><b>Phone:</b> {{ $('Prepare Lead Data').item.json.phone }}</p><p><b>Notes:</b> {{ $('Prepare Lead Data').item.json.notes }}</p><p><a href='https://crm.customshowers.uk/#/leads'>View in CRM</a></p>",
+        "toEmail": "sales@customshowers.uk",
+        "subject": "=New Website Enquiry: {{ $('Prepare Fields').item.json.lead_name }}",
+        "emailFormat": "html",
+        "message": "=<h2>New Quote Request from customshowers.uk</h2>\n<table style=\"border-collapse:collapse;width:100%;font-family:sans-serif\">\n  <tr><td style=\"padding:8px;font-weight:bold;background:#f1f5f9\">Name</td><td style=\"padding:8px\">{{ $('Prepare Fields').item.json.lead_name }}</td></tr>\n  <tr><td style=\"padding:8px;font-weight:bold;background:#f1f5f9\">Email</td><td style=\"padding:8px\"><a href=\"mailto:{{ $('Prepare Fields').item.json.lead_email }}\">{{ $('Prepare Fields').item.json.lead_email }}</a></td></tr>\n  <tr><td style=\"padding:8px;font-weight:bold;background:#f1f5f9\">Phone</td><td style=\"padding:8px\"><a href=\"tel:{{ $('Prepare Fields').item.json.lead_phone }}\">{{ $('Prepare Fields').item.json.lead_phone }}</a></td></tr>\n  <tr><td style=\"padding:8px;font-weight:bold;background:#f1f5f9\">Service Type</td><td style=\"padding:8px\">{{ $('Prepare Fields').item.json.service_type === 'supply_install' ? 'Supply + London Installation' : 'Supply Only' }}</td></tr>\n  <tr><td style=\"padding:8px;font-weight:bold;background:#f1f5f9\">Address</td><td style=\"padding:8px\">{{ $('Prepare Fields').item.json.address }}, {{ $('Prepare Fields').item.json.city }} {{ $('Prepare Fields').item.json.postcode }}</td></tr>\n  <tr><td style=\"padding:8px;font-weight:bold;background:#f1f5f9\">Project Details</td><td style=\"padding:8px\">{{ $('Prepare Fields').item.json.project_notes }}</td></tr>\n</table>\n<br>\n<p style=\"color:#6b7280;font-size:13px\">Lead and Deal have been automatically created in the CRM.</p>",
         "options": {}
       },
       "id": "send-email",
-      "name": "Send Notification Email",
+      "name": "Email sales@customshowers.uk",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [
-        900,
-        300
-      ]
+      "position": [1120, 300]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={ \"success\": true }",
-        "options": {}
+        "responseBody": "={ \"success\": true, \"message\": \"Thank you, we'll be in touch shortly.\" }",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://customshowers.uk"
+              }
+            ]
+          }
+        }
       },
-      "id": "respond",
-      "name": "Respond to Webhook",
+      "id": "respond-success",
+      "name": "Return Success",
       "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        1120,
-        300
-      ]
+      "typeVersion": 1.1,
+      "position": [1340, 240]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": false, \"message\": \"Something went wrong, please try again.\" }",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "respond-error",
+      "name": "Return Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1340, 400]
     }
   ],
   "connections": {
-    "Webhook": {
+    "Website Form Webhook": {
       "main": [
-        [
-          {
-            "node": "Prepare Lead Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Prepare Fields", "type": "main", "index": 0 }]
       ]
     },
-    "Prepare Lead Data": {
+    "Prepare Fields": {
       "main": [
-        [
-          {
-            "node": "Insert Lead to Supabase",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Create Lead in CRM", "type": "main", "index": 0 }]
       ]
     },
-    "Insert Lead to Supabase": {
+    "Create Lead in CRM": {
       "main": [
-        [
-          {
-            "node": "Send Notification Email",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Create Deal in CRM", "type": "main", "index": 0 }]
       ]
     },
-    "Send Notification Email": {
+    "Create Deal in CRM": {
       "main": [
-        [
-          {
-            "node": "Respond to Webhook",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Email sales@customshowers.uk", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email sales@customshowers.uk": {
+      "main": [
+        [{ "node": "Return Success", "type": "main", "index": 0 }]
       ]
     }
   },
-  "pinData": {},
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
   },
-  "staticData": null,
-  "tags": [],
-  "triggerCount": 0,
-  "updatedAt": "2026-03-14T00:24:16.919Z",
-  "versionId": "1"
+  "tags": ["crm", "website", "leads"],
+  "pinData": {}
 }

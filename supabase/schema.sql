@@ -133,3 +133,33 @@ CREATE INDEX idx_jobs_status         ON jobs(status);
 CREATE INDEX idx_jobs_scheduled_date ON jobs(scheduled_date);
 CREATE INDEX idx_invoices_customer_id ON invoices(customer_id);
 CREATE INDEX idx_invoices_status     ON invoices(status);
+
+CREATE TABLE deals (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  stage_changed_at  TIMESTAMPTZ DEFAULT NOW(),
+  deal_name         TEXT NOT NULL,
+  deal_owner        TEXT DEFAULT 'Matt Hopkinson',
+  amount            DECIMAL(10,2),
+  close_date        DATE,
+  stage             TEXT DEFAULT 'new_enquiry' CHECK (stage IN ('new_enquiry','design_received','quote_sent','quote_accepted','ordered_from_supplier','in_production','ready_for_delivery','completed','lost_on_hold')),
+  last_contacted    TIMESTAMPTZ,
+  final_order_value DECIMAL(10,2),
+  install_required  TEXT,
+  lead_source       TEXT,
+  shower_type       TEXT,
+  deal_type         TEXT DEFAULT 'New Business',
+  priority          TEXT DEFAULT 'Low',
+  design_reference  TEXT,
+  glass_supplier    TEXT,
+  hardware_supplier TEXT,
+  notes             TEXT,
+  customer_id       UUID REFERENCES customers(id) ON DELETE SET NULL,
+  lead_id           UUID REFERENCES leads(id) ON DELETE SET NULL
+);
+
+ALTER TABLE deals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users only" ON deals FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE INDEX idx_deals_stage       ON deals(stage);
+CREATE INDEX idx_deals_customer_id ON deals(customer_id);

@@ -6,11 +6,13 @@ import {
   FileText,
   Wrench,
   Receipt,
+  Handshake,
 } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/leads', icon: UserPlus, label: 'Leads' },
+  { to: '/deals', icon: Handshake, label: 'Deals' },
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/quotes', icon: FileText, label: 'Quotes' },
   { to: '/jobs', icon: Wrench, label: 'Jobs' },
@@ -20,7 +22,7 @@ const navItems = [
 export default function Sidebar() {
   return (
     <aside className="w-56 bg-slate-800 flex flex-col shrink-0 h-full">
-      <div className="flex items-center justify-center px-4 py-4 border-b border-slate-700">
+      <div className="flex items-center justify-center px-4 py-4 border-b border-slate-700 bg-white">
         <img
           src="/logo.png"
           alt="Custom Showers"

@@ -1,101 +1,101 @@
-# Website Form → CRM Setup (n8n)
+# Website Form → CRM Integration Setup
 
-This workflow receives submissions from your website contact form and automatically:
-1. Creates a new **Lead** in Supabase (visible in the CRM)
-2. Sends you a **notification email**
+Two options — pick one:
 
 ---
 
-## Step 1 — Import the workflow into n8n
+## Option A: Supabase Edge Function (simpler, no extra tools)
 
-1. Open your n8n instance
-2. Go to **Workflows → Import from file**
-3. Select `n8n/website-form-to-crm.json` from this repo
-4. Click **Import**
+### 1. Set environment variables in Supabase dashboard
 
----
+Go to **Project Settings → Edge Functions → Secrets** and add:
+- `RESEND_API_KEY` — get a free key at resend.com (send from noreply@customshowers.uk)
 
-## Step 2 — Add credentials in n8n
+### 2. Deploy the function
 
-### Supabase (HTTP Request node)
-The workflow calls the Supabase REST API directly. You need:
+```bash
+supabase functions deploy form-webhook --project-ref qgfmsyxaccvwmmygtspf
+```
 
-| Setting | Value |
-|---|---|
-| **Supabase URL** | `https://qgfmsyxaccvwmmygtspf.supabase.co` |
-| **Service Role Key** | Get from Supabase → Project Settings → API → service_role key |
+The webhook URL will be:
+```
+https://qgfmsyxaccvwmmygtspf.supabase.co/functions/v1/form-webhook
+```
 
-In the workflow, find the **"Insert Lead to Supabase"** node and update:
-- URL: `https://qgfmsyxaccvwmmygtspf.supabase.co/rest/v1/leads`
-- Header `apikey`: your service_role key
-- Header `Authorization`: `Bearer YOUR_SERVICE_ROLE_KEY`
+### 3. Update your website form
 
-### Email (Gmail / SMTP node)
-Find the **"Send notification email"** node and connect your email credentials.
+Add this to your website form's submit handler (replace the existing form action):
 
----
+```javascript
+async function submitQuoteForm(event) {
+  event.preventDefault()
+  const form = event.target
 
-## Step 3 — Activate the workflow
+  const payload = {
+    name:          form.querySelector('[name="name"]').value,
+    email:         form.querySelector('[name="email"]').value,
+    phone:         form.querySelector('[name="phone"]').value,
+    service_type:  form.querySelector('[name="service_type"]:checked')?.value, // 'supply_only' or 'supply_install'
+    address:       form.querySelector('[name="address"]').value,
+    city:          form.querySelector('[name="city"]').value,
+    postcode:      form.querySelector('[name="postcode"]').value,
+    project_notes: form.querySelector('[name="project_notes"]').value,
+  }
 
-1. Click the toggle to **Activate** the workflow
-2. Copy the **Webhook URL** from the Webhook trigger node
-   - It will look like: `https://your-n8n.com/webhook/custom-showers-form`
-
----
-
-## Step 4 — Add the JS snippet to your website form
-
-Add this script to your website, replacing `YOUR_WEBHOOK_URL` with the URL from Step 3:
-
-```html
-<script>
-document.getElementById('contact-form').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const form = e.target;
-  const data = {
-    name: form.querySelector('[name="name"]').value,
-    email: form.querySelector('[name="email"]').value,
-    phone: form.querySelector('[name="phone"]').value || '',
-    service_type: form.querySelector('[name="service_type"]:checked')?.value || '',
-    message: form.querySelector('[name="message"]')?.value || '',
-    source: 'website'
-  };
-
-  try {
-    await fetch('YOUR_WEBHOOK_URL', {
+  const res = await fetch(
+    'https://qgfmsyxaccvwmmygtspf.supabase.co/functions/v1/form-webhook',
+    {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
+      body: JSON.stringify(payload),
+    }
+  )
+
+  const data = await res.json()
+  if (data.success) {
     // Show success message
-    form.innerHTML = '<p>Thanks! We will be in touch soon.</p>';
-  } catch (err) {
-    console.error('Form submission error:', err);
+    alert("Thank you! We'll be in touch shortly.")
+    form.reset()
+  } else {
+    alert('Something went wrong, please try again.')
   }
-});
-</script>
+}
 ```
+
+Make sure your radio buttons have `value="supply_only"` and `value="supply_install"`.
 
 ---
 
-## Step 5 — Update your website form radio buttons
+## Option B: n8n Workflow
 
-Make sure your supply/install radio buttons have the correct `name` and `value` attributes:
+### 1. Import the workflow
 
-```html
-<input type="radio" name="service_type" value="supply_only"> Supply Only
-<input type="radio" name="service_type" value="supply_install"> Supply & Install
+In n8n: **Workflows → Import from file** → select `website-form-to-crm.json`
+
+### 2. Configure credentials
+
+Create a **Header Auth** credential named `Supabase API Key`:
+- **Name:** `apikey`
+- **Value:** your Supabase `anon` key (from Project Settings → API)
+
+Set up your **SMTP / Gmail** credentials for the email node.
+
+### 3. Activate the workflow
+
+Toggle the workflow to **Active**. Your webhook URL will be:
 ```
+https://YOUR-N8N-DOMAIN/webhook/customshowers-form
+```
+
+### 4. Update your website form
+
+Same as Option A but use your n8n webhook URL instead.
 
 ---
 
-## What appears in the CRM
+## What happens on each form submission
 
-Each form submission creates a new lead with:
-- **Name** from the form
-- **Email** and **Phone**
-- **Source**: `website`
-- **Status**: `new`
-- **Notes**: service type + message
-
-View new leads at: https://crm.customshowers.uk/#/leads
+1. Form POSTs JSON to the webhook URL
+2. A **Lead** is created in the CRM (Leads section) — status: New, source: Website
+3. A **Deal** is created in the CRM (Deals section) — stage: New Enquiry, linked to the lead
+4. An email is sent to **sales@customshowers.uk** with all the form details

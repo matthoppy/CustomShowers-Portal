@@ -14,6 +14,8 @@ import JobDetail from './pages/jobs/JobDetail'
 import InvoicesList from './pages/invoices/InvoicesList'
 import InvoiceForm from './pages/invoices/InvoiceForm'
 import InvoiceDetail from './pages/invoices/InvoiceDetail'
+import DealsList from './pages/deals/DealsList'
+import DealDetail from './pages/deals/DealDetail'
 
 function Layout() {
   return (
@@ -32,26 +34,31 @@ function Layout() {
 export default function App() {
   return (
     <HashRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/leads" element={<LeadsList />} />
-          <Route path="/leads/:id" element={<LeadDetail />} />
-          <Route path="/customers" element={<CustomersList />} />
-          <Route path="/customers/:id" element={<CustomerDetail />} />
-          <Route path="/quotes" element={<QuotesList />} />
-          <Route path="/quotes/new" element={<QuoteForm />} />
-          <Route path="/quotes/:id/edit" element={<QuoteForm />} />
-          <Route path="/quotes/:id" element={<QuoteDetail />} />
-          <Route path="/jobs" element={<JobsList />} />
-          <Route path="/jobs/:id" element={<JobDetail />} />
-          <Route path="/invoices" element={<InvoicesList />} />
-          <Route path="/invoices/new" element={<InvoiceForm />} />
-          <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
-          <Route path="/invoices/:id" element={<InvoiceDetail />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/leads" element={<LeadsList />} />
+            <Route path="/leads/:id" element={<LeadDetail />} />
+            <Route path="/customers" element={<CustomersList />} />
+            <Route path="/customers/:id" element={<CustomerDetail />} />
+            <Route path="/quotes" element={<QuotesList />} />
+            <Route path="/quotes/new" element={<QuoteForm />} />
+            <Route path="/quotes/:id/edit" element={<QuoteForm />} />
+            <Route path="/quotes/:id" element={<QuoteDetail />} />
+            <Route path="/jobs" element={<JobsList />} />
+            <Route path="/jobs/:id" element={<JobDetail />} />
+            <Route path="/invoices" element={<InvoicesList />} />
+            <Route path="/invoices/new" element={<InvoiceForm />} />
+            <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
+            <Route path="/invoices/:id" element={<InvoiceDetail />} />
+            <Route path="/deals" element={<DealsList />} />
+            <Route path="/deals/:id" element={<DealDetail />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
     </HashRouter>
   )
 }
