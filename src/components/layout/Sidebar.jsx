@@ -6,11 +6,13 @@ import {
   FileText,
   Wrench,
   Receipt,
+  Handshake,
 } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/leads', icon: UserPlus, label: 'Leads' },
+  { to: '/deals', icon: Handshake, label: 'Deals' },
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/quotes', icon: FileText, label: 'Quotes' },
   { to: '/jobs', icon: Wrench, label: 'Jobs' },

@@ -15,6 +15,8 @@ import JobDetail from './pages/jobs/JobDetail'
 import InvoicesList from './pages/invoices/InvoicesList'
 import InvoiceForm from './pages/invoices/InvoiceForm'
 import InvoiceDetail from './pages/invoices/InvoiceDetail'
+import DealsList from './pages/deals/DealsList'
+import DealDetail from './pages/deals/DealDetail'
 
 export default function App() {
   return (
@@ -38,6 +40,8 @@ export default function App() {
             <Route path="/invoices/new" element={<InvoiceForm />} />
             <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
             <Route path="/invoices/:id" element={<InvoiceDetail />} />
+            <Route path="/deals" element={<DealsList />} />
+            <Route path="/deals/:id" element={<DealDetail />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
