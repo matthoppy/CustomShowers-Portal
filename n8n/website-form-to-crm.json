@@ -1,0 +1,165 @@
+{
+  "name": "Website Form → CRM Lead",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "custom-showers-form",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "custom-showers-form"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\nconst name = body.name || 'Unknown';\nconst email = body.email || '';\nconst phone = body.phone || '';\nconst serviceType = body.service_type || '';\nconst message = body.message || '';\nconst source = body.source || 'website';\n\nconst notes = [\n  serviceType ? `Service type: ${serviceType}` : '',\n  message ? `Message: ${message}` : ''\n].filter(Boolean).join('\\n');\n\nreturn [{\n  json: {\n    name,\n    email,\n    phone,\n    source,\n    status: 'new',\n    notes\n  }\n}];"
+      },
+      "id": "prepare-data",
+      "name": "Prepare Lead Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://qgfmsyxaccvwmmygtspf.supabase.co/rest/v1/leads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "options": {}
+      },
+      "id": "insert-lead",
+      "name": "Insert Lead to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@customshowers.uk",
+        "toEmail": "matt@customshowers.uk",
+        "subject": "=New lead from website: {{ $('Prepare Lead Data').item.json.name }}",
+        "emailType": "html",
+        "message": "=<h2>New Lead</h2><p><b>Name:</b> {{ $('Prepare Lead Data').item.json.name }}</p><p><b>Email:</b> {{ $('Prepare Lead Data').item.json.email }}</p><p><b>Phone:</b> {{ $('Prepare Lead Data').item.json.phone }}</p><p><b>Notes:</b> {{ $('Prepare Lead Data').item.json.notes }}</p><p><a href='https://crm.customshowers.uk/#/leads'>View in CRM</a></p>",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Notification Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true }",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Insert Lead to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Lead to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Send Notification Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Notification Email": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-03-14T00:24:16.919Z",
+  "versionId": "1"
+}
