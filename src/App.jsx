@@ -1,4 +1,6 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import Sidebar from './components/layout/Sidebar'
+import TopBar from './components/layout/TopBar'
 import Dashboard from './pages/Dashboard'
 import LeadsList from './pages/leads/LeadsList'
 import LeadDetail from './pages/leads/LeadDetail'
@@ -13,25 +15,41 @@ import InvoicesList from './pages/invoices/InvoicesList'
 import InvoiceForm from './pages/invoices/InvoiceForm'
 import InvoiceDetail from './pages/invoices/InvoiceDetail'
 
+function Layout() {
+  return (
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
+      <Sidebar />
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <TopBar />
+        <main className="flex-1 overflow-auto p-6">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/leads" element={<LeadsList />} />
-        <Route path="/leads/:id" element={<LeadDetail />} />
-        <Route path="/customers" element={<CustomersList />} />
-        <Route path="/customers/:id" element={<CustomerDetail />} />
-        <Route path="/quotes" element={<QuotesList />} />
-        <Route path="/quotes/new" element={<QuoteForm />} />
-        <Route path="/quotes/:id/edit" element={<QuoteForm />} />
-        <Route path="/quotes/:id" element={<QuoteDetail />} />
-        <Route path="/jobs" element={<JobsList />} />
-        <Route path="/jobs/:id" element={<JobDetail />} />
-        <Route path="/invoices" element={<InvoicesList />} />
-        <Route path="/invoices/new" element={<InvoiceForm />} />
-        <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
-        <Route path="/invoices/:id" element={<InvoiceDetail />} />
+        <Route element={<Layout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/leads" element={<LeadsList />} />
+          <Route path="/leads/:id" element={<LeadDetail />} />
+          <Route path="/customers" element={<CustomersList />} />
+          <Route path="/customers/:id" element={<CustomerDetail />} />
+          <Route path="/quotes" element={<QuotesList />} />
+          <Route path="/quotes/new" element={<QuoteForm />} />
+          <Route path="/quotes/:id/edit" element={<QuoteForm />} />
+          <Route path="/quotes/:id" element={<QuoteDetail />} />
+          <Route path="/jobs" element={<JobsList />} />
+          <Route path="/jobs/:id" element={<JobDetail />} />
+          <Route path="/invoices" element={<InvoicesList />} />
+          <Route path="/invoices/new" element={<InvoiceForm />} />
+          <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
+          <Route path="/invoices/:id" element={<InvoiceDetail />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>
