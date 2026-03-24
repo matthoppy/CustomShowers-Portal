@@ -67,7 +67,18 @@ Deno.serve(async (req) => {
 
     if (leadError) throw new Error(`Lead creation failed: ${leadError.message}`)
 
-    // 2. Create Deal
+    // 2. Insert into contacts table (powers the Contacts view in the CRM portal)
+    await supabase.from('contacts').insert([{
+      name,
+      email,
+      phone: phone || null,
+      address: addressFull || null,
+      source: 'website',
+      service_type: serviceLabel,
+      message: project_notes || null,
+    }])
+
+    // 3. Create Deal
     const { error: dealError } = await supabase
       .from('deals')
       .insert([{

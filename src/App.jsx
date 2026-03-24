@@ -17,6 +17,7 @@ import InvoiceForm from './pages/invoices/InvoiceForm'
 import InvoiceDetail from './pages/invoices/InvoiceDetail'
 import DealsList from './pages/deals/DealsList'
 import DealDetail from './pages/deals/DealDetail'
+import ContactsList from './pages/contacts/ContactsList'
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/contacts" element={<ContactsList />} />
             <Route path="/leads" element={<LeadsList />} />
             <Route path="/leads/:id" element={<LeadDetail />} />
             <Route path="/customers" element={<CustomersList />} />

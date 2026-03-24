@@ -1,0 +1,14 @@
+name = "customshowers-contact"
+main = "index.ts"
+compatibility_date = "2024-09-23"
+
+# Environment variables — set secret values via:
+#   wrangler secret put HUBSPOT_API_KEY
+#   wrangler secret put SUPABASE_SERVICE_KEY
+[vars]
+SUPABASE_URL = "https://qgfmsyxaccvwmmygtspf.supabase.co"
+ALLOWED_ORIGIN = "https://customshowers.uk"
+
+# Secrets (do NOT add to wrangler.toml — use `wrangler secret put`):
+#   HUBSPOT_API_KEY
+#   SUPABASE_SERVICE_KEY

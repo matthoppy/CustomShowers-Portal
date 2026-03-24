@@ -7,10 +7,12 @@ import {
   Wrench,
   Receipt,
   Handshake,
+  BookUser,
 } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
+  { to: '/contacts', icon: BookUser, label: 'Contacts' },
   { to: '/leads', icon: UserPlus, label: 'Leads' },
   { to: '/deals', icon: Handshake, label: 'Deals' },
   { to: '/customers', icon: Users, label: 'Customers' },
@@ -21,8 +23,8 @@ const navItems = [
 
 export default function Sidebar() {
   return (
-    <aside className="w-56 bg-slate-800 flex flex-col shrink-0 h-full">
-      <div className="flex items-center justify-center px-4 py-4 border-b border-slate-700">
+    <aside className="w-56 flex flex-col shrink-0 h-full" style={{ backgroundColor: '#1a2942' }}>
+      <div className="flex items-center justify-center px-4 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <div className="bg-white rounded-lg px-3 py-2">
           <img
             src="/logo.png"
@@ -41,8 +43,8 @@ export default function Sidebar() {
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
                 isActive
-                  ? 'bg-slate-700 text-white border-l-2 border-indigo-500 pl-[10px]'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                  ? 'bg-white/15 text-white border-l-2 border-blue-400 pl-[10px]'
+                  : 'text-blue-100/80 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -52,8 +54,8 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="px-3 py-3 border-t border-slate-700">
-        <p className="text-slate-500 text-xs px-3">© 2025 Custom Showers</p>
+      <div className="px-3 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+        <p className="text-xs px-3" style={{ color: 'rgba(255,255,255,0.3)' }}>&copy; {new Date().getFullYear()} Custom Showers</p>
       </div>
     </aside>
   )

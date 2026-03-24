@@ -4,6 +4,7 @@ import { LogOut, User } from 'lucide-react'
 
 const pageTitles = {
   '/': 'Dashboard',
+  '/contacts': 'Contacts',
   '/leads': 'Leads',
   '/customers': 'Customers',
   '/quotes': 'Quotes',
@@ -34,10 +35,20 @@ export default function TopBar() {
       <h1 className="text-base font-semibold text-slate-800">{getTitle(pathname)}</h1>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-sm text-slate-600">
-          <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center">
-            <User className="w-4 h-4 text-indigo-600" />
-          </div>
-          <span className="hidden sm:block truncate max-w-[160px]">{user?.email}</span>
+          {user?.user_metadata?.avatar_url ? (
+            <img
+              src={user.user_metadata.avatar_url}
+              alt={user.user_metadata.full_name || user.email}
+              className="w-7 h-7 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center">
+              <User className="w-4 h-4 text-indigo-600" />
+            </div>
+          )}
+          <span className="hidden sm:block truncate max-w-[160px]">
+            {user?.user_metadata?.full_name || user?.email}
+          </span>
         </div>
         <button
           onClick={signOut}

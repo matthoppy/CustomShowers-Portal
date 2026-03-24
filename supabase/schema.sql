@@ -163,3 +163,32 @@ CREATE POLICY "Authenticated users only" ON deals FOR ALL TO authenticated USING
 
 CREATE INDEX idx_deals_stage       ON deals(stage);
 CREATE INDEX idx_deals_customer_id ON deals(customer_id);
+
+-- ============================================================
+-- CONTACTS TABLE
+-- Website enquiries (via Cloudflare Worker / contact form) and
+-- manually-added contacts. Source: 'website' | 'manual'
+-- ============================================================
+
+CREATE TABLE contacts (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  name         TEXT NOT NULL,
+  email        TEXT,
+  phone        TEXT,
+  address      TEXT,
+  source       TEXT DEFAULT 'manual' CHECK (source IN ('website', 'manual')),
+  service_type TEXT,
+  message      TEXT
+);
+
+ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
+
+-- Allow authenticated users full access
+CREATE POLICY "Authenticated users only" ON contacts FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Allow service role (Cloudflare Worker) to insert
+CREATE POLICY "Service role insert" ON contacts FOR INSERT TO service_role WITH CHECK (true);
+
+CREATE INDEX idx_contacts_source     ON contacts(source);
+CREATE INDEX idx_contacts_created_at ON contacts(created_at DESC);
