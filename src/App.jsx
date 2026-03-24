@@ -18,6 +18,8 @@ import InvoiceDetail from './pages/invoices/InvoiceDetail'
 import DealsList from './pages/deals/DealsList'
 import DealDetail from './pages/deals/DealDetail'
 import ContactsList from './pages/contacts/ContactsList'
+import SurveysList from './pages/surveys/SurveysList'
+import SurveyDetail from './pages/surveys/SurveyDetail'
 
 export default function App() {
   return (
@@ -30,6 +32,10 @@ export default function App() {
             <Route path="/contacts" element={<ContactsList />} />
             <Route path="/leads" element={<LeadsList />} />
             <Route path="/leads/:id" element={<LeadDetail />} />
+            <Route path="/surveys" element={<SurveysList />} />
+            <Route path="/surveys/:id" element={<SurveyDetail />} />
+            <Route path="/deals" element={<DealsList />} />
+            <Route path="/deals/:id" element={<DealDetail />} />
             <Route path="/customers" element={<CustomersList />} />
             <Route path="/customers/:id" element={<CustomerDetail />} />
             <Route path="/quotes" element={<QuotesList />} />
@@ -42,8 +48,6 @@ export default function App() {
             <Route path="/invoices/new" element={<InvoiceForm />} />
             <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
             <Route path="/invoices/:id" element={<InvoiceDetail />} />
-            <Route path="/deals" element={<DealsList />} />
-            <Route path="/deals/:id" element={<DealDetail />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
