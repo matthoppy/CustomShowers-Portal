@@ -12,13 +12,18 @@ import FormInput, { FormSelect, FormTextarea } from '../../components/ui/FormInp
 import { formatDate } from '../../lib/utils'
 
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled']
-const EMPTY_FORM = { customer_id: '', title: '', description: '', status: 'scheduled', scheduled_date: '', notes: '' }
+const JOB_TYPES = [
+  { value: 'supply_only', label: 'Supply Only' },
+  { value: 'supply_and_install', label: 'Supply + London Installation' },
+]
+const EMPTY_FORM = { customer_id: '', title: '', description: '', status: 'scheduled', scheduled_date: '', notes: '', job_type: 'supply_only' }
 
 export default function JobsList() {
   const { jobs, loading, refetch } = useJobs()
   const { customers } = useCustomers()
   const navigate = useNavigate()
-  const [filter, setFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -27,53 +32,35 @@ export default function JobsList() {
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    setError('')
+    e.preventDefault(); setSaving(true); setError('')
     const { count } = await supabase.from('jobs').select('*', { count: 'exact', head: true })
     const job_number = `JB-${String((count || 0) + 1).padStart(3, '0')}`
     const { data, error } = await supabase.from('jobs').insert([{
-      ...form,
-      job_number,
+      ...form, job_number,
       customer_id: form.customer_id || null,
       scheduled_date: form.scheduled_date || null,
     }]).select().single()
     setSaving(false)
-    if (error) {
-      setError(error.message)
-    } else {
-      setModal(false)
-      setForm(EMPTY_FORM)
-      refetch()
-      navigate(`/jobs/${data.id}`)
+    if (error) { setError(error.message) } else {
+      setModal(false); setForm(EMPTY_FORM); refetch(); navigate(`/jobs/${data.id}`)
     }
   }
 
-  const filtered = filter === 'all' ? jobs : jobs.filter((j) => j.status === filter)
+  const filtered = jobs.filter((j) => {
+    if (statusFilter !== 'all' && j.status !== statusFilter) return false
+    if (typeFilter !== 'all' && j.job_type !== typeFilter) return false
+    return true
+  })
 
-  const statusCounts = jobs.reduce((acc, j) => {
-    acc[j.status] = (acc[j.status] || 0) + 1
-    return acc
-  }, {})
+  const statusCounts = jobs.reduce((acc, j) => { acc[j.status] = (acc[j.status] || 0) + 1; return acc }, {})
 
   const columns = [
     { key: 'job_number', label: 'Job #' },
-    {
-      key: 'customer',
-      label: 'Customer',
-      accessor: (r) => r.customers ? `${r.customers.first_name} ${r.customers.last_name}` : '—',
-    },
+    { key: 'customer', label: 'Customer', accessor: (r) => r.customers ? `${r.customers.first_name} ${r.customers.last_name}` : '—' },
     { key: 'title', label: 'Title' },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (val) => <Badge status={val} />,
-    },
-    {
-      key: 'scheduled_date',
-      label: 'Scheduled',
-      accessor: (r) => formatDate(r.scheduled_date),
-    },
+    { key: 'job_type', label: 'Type', render: (val) => <Badge status={val} /> },
+    { key: 'status', label: 'Status', render: (val) => <Badge status={val} /> },
+    { key: 'scheduled_date', label: 'Scheduled', accessor: (r) => formatDate(r.scheduled_date) },
   ]
 
   return (
@@ -87,38 +74,32 @@ export default function JobsList() {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {[['all', 'All'], ...STATUSES.map((s) => [s, s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)])].map(([val, label]) => (
-          <button
-            key={val}
-            onClick={() => setFilter(val)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              filter === val
-                ? 'bg-indigo-600 text-white'
-                : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
-            }`}
-          >
+        {[['all', 'All Types'], ['supply_only', 'Supply Only'], ['supply_and_install', 'Supply + Install']].map(([val, label]) => (
+          <button key={val} onClick={() => setTypeFilter(val)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${typeFilter === val ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'}`}>
             {label}
-            {val !== 'all' && (
-              <span className={`ml-1.5 ${filter === val ? 'opacity-75' : 'text-slate-400'}`}>
-                {statusCounts[val] || 0}
-              </span>
-            )}
+          </button>
+        ))}
+        <span className="border-l border-slate-200 mx-1" />
+        {[['all', 'All'], ...STATUSES.map((s) => [s, s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)])].map(([val, label]) => (
+          <button key={val} onClick={() => setStatusFilter(val)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${statusFilter === val ? 'bg-slate-700 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-400 hover:text-slate-700'}`}>
+            {label}
+            {val !== 'all' && <span className={`ml-1.5 ${statusFilter === val ? 'opacity-75' : 'text-slate-400'}`}>{statusCounts[val] || 0}</span>}
           </button>
         ))}
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filtered}
-        onRowClick={(r) => navigate(`/jobs/${r.id}`)}
-        searchPlaceholder="Search jobs..."
-        emptyMessage={loading ? 'Loading...' : 'No jobs found'}
-      />
+      <DataTable columns={columns} data={filtered} onRowClick={(r) => navigate(`/jobs/${r.id}`)}
+        searchPlaceholder="Search jobs..." emptyMessage={loading ? 'Loading...' : 'No jobs found'} />
 
       <Modal open={modal} onClose={() => setModal(false)} title="Add New Job">
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
           <FormInput label="Job Title" required value={form.title} onChange={set('title')} placeholder="e.g. Wetroom installation" />
+          <FormSelect label="Job Type" value={form.job_type} onChange={set('job_type')}>
+            {JOB_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </FormSelect>
           <FormSelect label="Customer" value={form.customer_id} onChange={set('customer_id')}>
             <option value="">— No customer selected —</option>
             {customers.map((c) => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
