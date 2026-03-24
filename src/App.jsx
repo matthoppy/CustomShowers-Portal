@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import Login from './pages/Login'
@@ -21,7 +21,7 @@ import ContactsList from './pages/contacts/ContactsList'
 
 export default function App() {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -48,6 +48,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
-    </HashRouter>
+    </BrowserRouter>
   )
 }
