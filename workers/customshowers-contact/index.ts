@@ -3,8 +3,9 @@
  *
  * Handles website contact form submissions from customshowers.uk.
  * On each submission it:
- *   1. Creates/updates a contact in HubSpot
- *   2. Inserts a row into the Supabase `contacts` table so the lead
+ *   1. Verifies the Cloudflare Turnstile token
+ *   2. Creates/updates a contact in HubSpot
+ *   3. Inserts a row into the Supabase `contacts` table so the lead
  *      appears in the CRM portal at crm.customshowers.uk
  *
  * Required environment variables (set in Cloudflare dashboard or wrangler.toml):
@@ -12,6 +13,7 @@
  *   SUPABASE_URL           — https://qgfmsyxaccvwmmygtspf.supabase.co
  *   SUPABASE_SERVICE_KEY   — Service-role key (from Supabase project settings → API)
  *   ALLOWED_ORIGIN         — e.g. https://customshowers.uk (for CORS)
+ *   TURNSTILE_SECRET_KEY   — Cloudflare Turnstile secret key
  */
 
 interface Env {
@@ -19,6 +21,7 @@ interface Env {
   SUPABASE_URL: string
   SUPABASE_SERVICE_KEY: string
   ALLOWED_ORIGIN?: string
+  TURNSTILE_SECRET_KEY?: string
 }
 
 interface ContactFormPayload {
@@ -26,8 +29,11 @@ interface ContactFormPayload {
   email: string
   phone?: string
   address?: string
-  service_type?: string
+  service_type?: string   // snake_case (from Worker-direct calls)
+  serviceType?: string    // camelCase (from website QuoteForm.tsx)
   message?: string
+  turnstileToken?: string
+  photo?: { name: string; type: string; data: string } | null
 }
 
 const corsHeaders = (origin: string) => ({
@@ -63,13 +69,41 @@ export default {
       })
     }
 
-    const { name, email, phone, address, service_type, message } = body
+    // Normalise field names — form sends camelCase, normalise to snake_case
+    const { name, email, phone, address, message } = body
+    const service_type = body.service_type || body.serviceType || null
 
     if (!name || !email) {
       return new Response(JSON.stringify({ error: 'name and email are required' }), {
         status: 400,
         headers: { ...cors, 'Content-Type': 'application/json' },
       })
+    }
+
+    // ---------------------------------------------------------------
+    // Optional: Verify Turnstile token (skip if secret not configured)
+    // ---------------------------------------------------------------
+    if (env.TURNSTILE_SECRET_KEY && body.turnstileToken) {
+      try {
+        const tsRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            secret: env.TURNSTILE_SECRET_KEY,
+            response: body.turnstileToken,
+          }),
+        })
+        const tsData = await tsRes.json() as { success: boolean }
+        if (!tsData.success) {
+          return new Response(JSON.stringify({ error: 'Security check failed' }), {
+            status: 403,
+            headers: { ...cors, 'Content-Type': 'application/json' },
+          })
+        }
+      } catch {
+        // If Turnstile verification fails due to network, continue anyway
+        console.warn('Turnstile verification skipped due to error')
+      }
     }
 
     const errors: string[] = []
@@ -90,7 +124,6 @@ export default {
           address: address || '',
           hs_lead_status: 'NEW',
           lifecyclestage: 'lead',
-          // Custom HubSpot property — create in HubSpot if it doesn't exist
           shower_service_type: service_type || '',
           message: message || '',
         },
@@ -110,7 +143,6 @@ export default {
 
       if (!hsRes.ok) {
         const hsBody = await hsRes.text()
-        // If contact already exists (409) try to update via upsert
         if (hsRes.status === 409) {
           await fetch(
             `https://api.hubapi.com/crm/v3/objects/contacts/${encodeURIComponent(email)}?idProperty=email`,
@@ -165,7 +197,7 @@ export default {
       errors.push(`Supabase exception: ${String(err)}`)
     }
 
-    // If both failed, return 500 so the website form can show an error
+    // If both failed, return 500
     if (errors.length === 2) {
       console.error('Both integrations failed:', errors)
       return new Response(
@@ -174,7 +206,6 @@ export default {
       )
     }
 
-    // At least one succeeded — log any partial failures
     if (errors.length > 0) {
       console.warn('Partial failure:', errors)
     }
