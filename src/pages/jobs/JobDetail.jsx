@@ -12,6 +12,10 @@ import FormInput, { FormSelect, FormTextarea } from '../../components/ui/FormInp
 import { formatDate, formatDatetime } from '../../lib/utils'
 
 const STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled']
+const JOB_TYPES = [
+  { value: 'supply_only', label: 'Supply Only' },
+  { value: 'supply_and_install', label: 'Supply + London Installation' },
+]
 
 export default function JobDetail() {
   const { id } = useParams()
@@ -22,18 +26,15 @@ export default function JobDetail() {
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [editingNotes, setEditingNotes] = useState(false)
+  const [notesVal, setNotesVal] = useState('')
 
-  const openEdit = () => {
-    setForm({ ...job })
-    setEditModal(true)
-  }
-
+  const openEdit = () => { setForm({ ...job }); setEditModal(true) }
+  const openNotesEdit = () => { setNotesVal(job.notes || ''); setEditingNotes(true) }
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
 
   const handleEdit = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    setSaveError('')
+    e.preventDefault(); setSaving(true); setSaveError('')
     const { error } = await update(form)
     setSaving(false)
     if (error) setSaveError(error.message)
@@ -46,22 +47,20 @@ export default function JobDetail() {
     if (data) setJob((prev) => ({ ...prev, status, ...extra }))
   }
 
+  const handleSaveNotes = async () => {
+    await update({ notes: notesVal })
+    setJob((prev) => ({ ...prev, notes: notesVal }))
+    setEditingNotes(false)
+  }
+
   const handleCreateInvoice = async () => {
     const { count } = await supabase.from('invoices').select('*', { count: 'exact', head: true })
     const invoice_number = `INV-${String((count || 0) + 1).padStart(3, '0')}`
-    const dueDate = new Date()
-    dueDate.setDate(dueDate.getDate() + 30)
+    const dueDate = new Date(); dueDate.setDate(dueDate.getDate() + 30)
     const { data } = await supabase.from('invoices').insert([{
-      invoice_number,
-      customer_id: job.customer_id,
-      job_id: id,
-      status: 'unpaid',
-      due_date: dueDate.toISOString().split('T')[0],
-      subtotal: 0,
-      vat_rate: 20,
-      vat_amount: 0,
-      total: 0,
-      amount_paid: 0,
+      invoice_number, customer_id: job.customer_id, job_id: id,
+      status: 'unpaid', due_date: dueDate.toISOString().split('T')[0],
+      subtotal: 0, vat_rate: 20, vat_amount: 0, total: 0, amount_paid: 0,
     }]).select().single()
     if (data) navigate(`/invoices/${data.id}/edit`)
   }
@@ -80,6 +79,7 @@ export default function JobDetail() {
           <p className="text-sm text-slate-500">{job.job_number} · Created {formatDatetime(job.created_at)}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Badge status={job.job_type} />
           <Badge status={job.status} />
           <Button icon={Edit2} variant="secondary" size="sm" onClick={openEdit}>Edit</Button>
         </div>
@@ -99,10 +99,8 @@ export default function JobDetail() {
                 ) : <span className="text-slate-400">—</span>}
               </div>
               <div>
-                <p className="text-slate-500 text-xs mb-1">Linked Quote</p>
-                {job.quotes ? (
-                  <Link to={`/quotes/${job.quote_id}`} className="text-indigo-600 hover:underline">{job.quotes.quote_number}</Link>
-                ) : <span className="text-slate-400">—</span>}
+                <p className="text-slate-500 text-xs mb-1">Job Type</p>
+                <Badge status={job.job_type || 'supply_only'} />
               </div>
               <div>
                 <p className="text-slate-500 text-xs mb-1">Scheduled Date</p>
@@ -112,6 +110,12 @@ export default function JobDetail() {
                 <p className="text-slate-500 text-xs mb-1">Completion Date</p>
                 <p className="text-slate-700">{formatDate(job.completion_date)}</p>
               </div>
+              {job.quotes && (
+                <div>
+                  <p className="text-slate-500 text-xs mb-1">Linked Quote</p>
+                  <Link to={`/quotes/${job.quote_id}`} className="text-indigo-600 hover:underline">{job.quotes.quote_number}</Link>
+                </div>
+              )}
             </div>
             {job.description && (
               <div className="mt-4 pt-4 border-t border-slate-100 text-sm">
@@ -119,11 +123,32 @@ export default function JobDetail() {
                 <p className="text-slate-700 leading-relaxed">{job.description}</p>
               </div>
             )}
-            {job.notes && (
-              <div className="mt-4 pt-4 border-t border-slate-100 text-sm">
-                <p className="text-slate-500 text-xs mb-1">Notes</p>
-                <p className="text-slate-700 leading-relaxed">{job.notes}</p>
+          </Card>
+
+          <Card>
+            <CardHeader title="Notes"
+              action={!editingNotes && (
+                <button onClick={openNotesEdit} className="text-xs text-indigo-600 hover:underline">
+                  {job.notes ? 'Edit notes' : 'Add notes'}
+                </button>
+              )}
+            />
+            {editingNotes ? (
+              <div className="space-y-3">
+                <textarea
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                  rows={5} value={notesVal} onChange={(e) => setNotesVal(e.target.value)} autoFocus
+                  placeholder="Installation notes, special requirements, access info, customer preferences..."
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button variant="secondary" size="sm" onClick={() => setEditingNotes(false)}>Cancel</Button>
+                  <Button size="sm" onClick={handleSaveNotes}>Save Notes</Button>
+                </div>
               </div>
+            ) : (
+              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap min-h-[3rem]">
+                {job.notes || <span className="text-slate-400 italic">No notes yet — click "Add notes" to record job details, installation notes, or customer requirements.</span>}
+              </p>
             )}
           </Card>
         </div>
@@ -133,15 +158,10 @@ export default function JobDetail() {
             <CardHeader title="Update Status" />
             <div className="space-y-2">
               {STATUSES.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => handleStatusChange(s)}
+                <button key={s} onClick={() => handleStatusChange(s)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-                    job.status === s
-                      ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                      : 'border-slate-200 hover:border-indigo-200 hover:bg-slate-50 text-slate-600'
-                  }`}
-                >
+                    job.status === s ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 hover:border-indigo-200 hover:bg-slate-50 text-slate-600'
+                  }`}>
                   <span>{s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}</span>
                   {job.status === s && <span className="text-xs text-indigo-500">Current</span>}
                 </button>
@@ -158,11 +178,13 @@ export default function JobDetail() {
         </div>
       </div>
 
-      {/* Edit Modal */}
       <Modal open={editModal} onClose={() => setEditModal(false)} title="Edit Job">
         <form onSubmit={handleEdit} className="space-y-4">
           {saveError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{saveError}</p>}
           <FormInput label="Job Title" required value={form.title || ''} onChange={set('title')} />
+          <FormSelect label="Job Type" value={form.job_type || 'supply_only'} onChange={set('job_type')}>
+            {JOB_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </FormSelect>
           <FormSelect label="Customer" value={form.customer_id || ''} onChange={set('customer_id')}>
             <option value="">— No customer —</option>
             {customers.map((c) => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
