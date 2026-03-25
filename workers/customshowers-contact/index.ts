@@ -7,6 +7,7 @@
  *   2. Creates/updates a contact in HubSpot
  *   3. Inserts a row into the Supabase `contacts` table so the lead
  *      appears in the CRM portal at crm.customshowers.uk
+ *   4. Sends an email notification to sales@customshowers.uk via Resend
  *
  * Required environment variables (set in Cloudflare dashboard or wrangler.toml):
  *   HUBSPOT_API_KEY        — HubSpot private app token
@@ -14,6 +15,7 @@
  *   SUPABASE_SERVICE_KEY   — Service-role key (from Supabase project settings → API)
  *   ALLOWED_ORIGIN         — e.g. https://customshowers.uk (for CORS)
  *   TURNSTILE_SECRET_KEY   — Cloudflare Turnstile secret key
+ *   RESEND_API_KEY         — Resend API key (for email notifications)
  */
 
 interface Env {
@@ -22,6 +24,7 @@ interface Env {
   SUPABASE_SERVICE_KEY: string
   ALLOWED_ORIGIN?: string
   TURNSTILE_SECRET_KEY?: string
+  RESEND_API_KEY?: string
 }
 
 interface ContactFormPayload {
@@ -197,7 +200,44 @@ export default {
       errors.push(`Supabase exception: ${String(err)}`)
     }
 
-    // If both failed, return 500
+    // ---------------------------------------------------------------
+    // 3. Resend — email notification to sales@customshowers.uk
+    // ---------------------------------------------------------------
+    if (env.RESEND_API_KEY) {
+      try {
+        const htmlBody = `
+          <h2>New Website Enquiry</h2>
+          <p><strong>Name:</strong> ${name}</p>
+          <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+          <p><strong>Phone:</strong> ${phone || '—'}</p>
+          <p><strong>Address:</strong> ${address || '—'}</p>
+          <p><strong>Service Type:</strong> ${service_type || '—'}</p>
+          <p><strong>Message:</strong></p>
+          <p>${message ? message.replace(/\n/g, '<br>') : '—'}</p>
+          <p style="color:#64748b;font-size:12px">✅ Also saved to CRM portal contacts.</p>
+        `
+        const resendRes = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'Custom Showers Website <noreply@customshowers.uk>',
+            to: ['sales@customshowers.uk'],
+            subject: `New Enquiry from ${name}`,
+            html: htmlBody,
+          }),
+        })
+        if (!resendRes.ok) {
+          console.error('Resend error:', await resendRes.text())
+        }
+      } catch (err) {
+        console.error('Resend exception:', String(err))
+      }
+    }
+
+    // If both HubSpot and Supabase failed, return 500
     if (errors.length === 2) {
       console.error('Both integrations failed:', errors)
       return new Response(
