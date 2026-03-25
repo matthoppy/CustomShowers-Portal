@@ -192,3 +192,55 @@ CREATE POLICY "Service role insert" ON contacts FOR INSERT TO service_role WITH 
 
 CREATE INDEX idx_contacts_source     ON contacts(source);
 CREATE INDEX idx_contacts_created_at ON contacts(created_at DESC);
+
+-- ============================================================
+-- SURVEYS TABLE
+-- On-site surveys linked to leads and/or customers.
+-- ============================================================
+
+CREATE TABLE surveys (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  survey_number  TEXT UNIQUE NOT NULL,
+  contact_name   TEXT,
+  contact_email  TEXT,
+  contact_phone  TEXT,
+  address        TEXT,
+  scheduled_date DATE,
+  scheduled_time TIME,
+  job_type       TEXT DEFAULT 'supply_only' CHECK (job_type IN ('supply_only', 'supply_and_install')),
+  status         TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'completed', 'cancelled', 'rescheduled')),
+  customer_id    UUID REFERENCES customers(id) ON DELETE SET NULL,
+  lead_id        UUID REFERENCES leads(id) ON DELETE SET NULL,
+  notes          TEXT
+);
+
+ALTER TABLE surveys ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users only" ON surveys FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE INDEX idx_surveys_status        ON surveys(status);
+CREATE INDEX idx_surveys_scheduled_date ON surveys(scheduled_date);
+
+-- ============================================================
+-- SCHEMA MIGRATIONS
+-- Additional columns added after initial schema creation.
+-- ============================================================
+
+-- job_type on leads (supply_only | supply_and_install)
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS job_type TEXT DEFAULT 'supply_only' CHECK (job_type IN ('supply_only', 'supply_and_install'));
+
+-- invoice_type on invoices (full | deposit | final)
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS invoice_type TEXT DEFAULT 'full' CHECK (invoice_type IN ('full', 'deposit', 'final'));
+
+-- job_type on jobs (supply_only | supply_and_install)
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS job_type TEXT DEFAULT 'supply_only';
+
+-- supplier tracking on jobs
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS glass_supplier TEXT;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS hardware_supplier TEXT;
+
+-- Extended job statuses for install track (ordered, in_production, ready_to_install)
+-- Drop existing constraint and recreate with expanded values
+ALTER TABLE jobs DROP CONSTRAINT IF EXISTS jobs_status_check;
+ALTER TABLE jobs ADD CONSTRAINT jobs_status_check
+  CHECK (status IN ('ordered', 'in_production', 'ready_to_install', 'scheduled', 'in_progress', 'completed', 'cancelled'));

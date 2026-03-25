@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Edit2, Wrench } from 'lucide-react'
+import { ArrowLeft, Edit2, Receipt, FileText } from 'lucide-react'
 import { useQuote } from '../../hooks/useQuotes'
 import { supabase } from '../../lib/supabase'
 import Card, { CardHeader } from '../../components/ui/Card'
@@ -26,17 +26,32 @@ export default function QuoteDetail() {
     await update({ status })
   }
 
-  const handleCreateJob = async () => {
-    const { count } = await supabase.from('jobs').select('*', { count: 'exact', head: true })
-    const job_number = `JB-${String((count || 0) + 1).padStart(3, '0')}`
-    const { data } = await supabase.from('jobs').insert([{
-      job_number,
+  const handleCreateInvoice = async (invoiceType) => {
+    const { count } = await supabase.from('invoices').select('*', { count: 'exact', head: true })
+    const invoice_number = `INV-${String((count || 0) + 1).padStart(3, '0')}`
+    const dueDate = new Date(); dueDate.setDate(dueDate.getDate() + 30)
+
+    const isDeposit = invoiceType === 'deposit'
+    const depositTotal = isDeposit ? Number((Number(quote.total) * 0.5).toFixed(2)) : 0
+    const depositSubtotal = isDeposit ? Number((Number(quote.subtotal) * 0.5).toFixed(2)) : 0
+    const depositVat = isDeposit ? Number((Number(quote.vat_amount) * 0.5).toFixed(2)) : 0
+
+    const { data } = await supabase.from('invoices').insert([{
+      invoice_number,
       customer_id: quote.customer_id,
-      quote_id: id,
-      title: `Installation — ${quote.quote_number}`,
-      status: 'scheduled',
+      status: 'unpaid',
+      invoice_type: invoiceType,
+      due_date: dueDate.toISOString().split('T')[0],
+      subtotal: isDeposit ? depositSubtotal : 0,
+      vat_rate: quote.vat_rate,
+      vat_amount: isDeposit ? depositVat : 0,
+      total: isDeposit ? depositTotal : 0,
+      amount_paid: 0,
+      notes: isDeposit
+        ? `50% deposit for ${quote.quote_number}`
+        : `Full payment for ${quote.quote_number}`,
     }]).select().single()
-    if (data) navigate(`/jobs/${data.id}`)
+    if (data) navigate(`/invoices/${data.id}/edit`)
   }
 
   if (loading) return <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
@@ -145,14 +160,26 @@ export default function QuoteDetail() {
             </Card>
           )}
 
-          {quote.status === 'accepted' && (
-            <Card>
-              <CardHeader title="Next Steps" />
-              <Button icon={Wrench} variant="primary" className="w-full justify-center" onClick={handleCreateJob}>
-                Create Job
-              </Button>
-            </Card>
-          )}
+          {quote.status === 'accepted' && (() => {
+            const jobType = quote.leads?.job_type || 'supply_only'
+            const isInstall = jobType === 'supply_and_install'
+            return (
+              <Card>
+                <CardHeader title="Next Steps" />
+                <div className="space-y-2">
+                  {isInstall ? (
+                    <Button icon={Receipt} variant="primary" className="w-full justify-center" onClick={() => handleCreateInvoice('deposit')}>
+                      Create Deposit Invoice (50%)
+                    </Button>
+                  ) : (
+                    <Button icon={FileText} variant="primary" className="w-full justify-center" onClick={() => handleCreateInvoice('full')}>
+                      Create Invoice (Full)
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            )
+          })()}
         </div>
       </div>
     </div>

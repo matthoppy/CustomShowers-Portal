@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Mail, Phone, UserCheck, PhoneIncoming, PhoneMissed, PhoneOff } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, UserCheck, PhoneIncoming, PhoneMissed, PhoneOff, ClipboardList, FileText } from 'lucide-react'
 import { useLead } from '../../hooks/useLeads'
 import { useLeadCalls } from '../../hooks/useCalls'
 import { supabase } from '../../lib/supabase'
@@ -26,6 +26,10 @@ function formatDuration(s) {
 
 const STATUSES = ['new', 'contacted', 'qualified', 'lost']
 const SOURCES = ['Website', 'Referral', 'Google', 'Social Media', 'Checkatrade', 'Other']
+const JOB_TYPES = [
+  { value: 'supply_only', label: 'Supply Only' },
+  { value: 'supply_and_install', label: 'Supply + London Installation' },
+]
 
 export default function LeadDetail() {
   const { id } = useParams()
@@ -34,16 +38,19 @@ export default function LeadDetail() {
   const { calls } = useLeadCalls(id)
   const [editModal, setEditModal] = useState(false)
   const [convertModal, setConvertModal] = useState(false)
+  const [surveyModal, setSurveyModal] = useState(false)
   const [form, setForm] = useState({})
   const [convertForm, setConvertForm] = useState({
     first_name: '', last_name: '', email: '', phone: '',
     address_line1: '', city: '', postcode: '',
   })
+  const [surveyForm, setSurveyForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
   const setC = (k) => (e) => setConvertForm((p) => ({ ...p, [k]: e.target.value }))
+  const setS = (k) => (e) => setSurveyForm((p) => ({ ...p, [k]: e.target.value }))
 
   const openEdit = () => {
     setForm({ ...lead })
@@ -62,6 +69,55 @@ export default function LeadDetail() {
       postcode: '',
     })
     setConvertModal(true)
+  }
+
+  const openSurvey = () => {
+    setSurveyForm({
+      contact_name: lead.name || '',
+      contact_email: lead.email || '',
+      contact_phone: lead.phone || '',
+      address: lead.customers?.address_line1 || '',
+      job_type: lead.job_type || 'supply_only',
+      status: 'scheduled',
+      scheduled_date: '',
+      scheduled_time: '',
+      notes: '',
+    })
+    setSaveError('')
+    setSurveyModal(true)
+  }
+
+  const handleBookSurvey = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setSaveError('')
+    const { count } = await supabase.from('surveys').select('*', { count: 'exact', head: true })
+    const survey_number = `SV-${String((count || 0) + 1).padStart(3, '0')}`
+    const { data, error } = await supabase.from('surveys').insert([{
+      ...surveyForm,
+      survey_number,
+      customer_id: lead.customer_id || null,
+      lead_id: id,
+      scheduled_date: surveyForm.scheduled_date || null,
+      scheduled_time: surveyForm.scheduled_time || null,
+    }]).select().single()
+    setSaving(false)
+    if (error) { setSaveError(error.message); return }
+    setSurveyModal(false)
+    navigate(`/surveys/${data.id}`)
+  }
+
+  const handleCreateQuote = async () => {
+    const { count } = await supabase.from('quotes').select('*', { count: 'exact', head: true })
+    const quote_number = `QT-${String((count || 0) + 1).padStart(3, '0')}`
+    const { data } = await supabase.from('quotes').insert([{
+      quote_number,
+      customer_id: lead.customer_id || null,
+      lead_id: id,
+      status: 'draft',
+      subtotal: 0, vat_rate: 20, vat_amount: 0, total: 0,
+    }]).select().single()
+    if (data) navigate(`/quotes/${data.id}/edit`)
   }
 
   const handleEdit = async (e) => {
@@ -140,6 +196,12 @@ export default function LeadDetail() {
                 <span className="text-slate-700">{lead.source}</span>
               </div>
             )}
+            {lead.job_type && (
+              <div className="text-sm">
+                <span className="text-slate-500">Job Type: </span>
+                <Badge status={lead.job_type} />
+              </div>
+            )}
             {lead.notes && (
               <div className="pt-3 border-t border-slate-100">
                 <p className="text-xs font-medium text-slate-500 mb-1">Notes</p>
@@ -191,6 +253,19 @@ export default function LeadDetail() {
         </Card>
       </div>
 
+      {/* Next Steps */}
+      <Card>
+        <CardHeader title="Next Steps" />
+        <div className="flex flex-wrap gap-2">
+          <Button icon={ClipboardList} variant="secondary" onClick={openSurvey}>
+            Book Survey
+          </Button>
+          <Button icon={FileText} variant="primary" onClick={handleCreateQuote}>
+            Create Quote
+          </Button>
+        </div>
+      </Card>
+
       {/* Call History */}
       {calls.length > 0 && (
         <Card>
@@ -226,6 +301,9 @@ export default function LeadDetail() {
             <option value="">— Select source —</option>
             {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
           </FormSelect>
+          <FormSelect label="Job Type" value={form.job_type || 'supply_only'} onChange={set('job_type')}>
+            {JOB_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </FormSelect>
           <FormSelect label="Status" value={form.status || 'new'} onChange={set('status')}>
             {STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </FormSelect>
@@ -256,6 +334,31 @@ export default function LeadDetail() {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setConvertModal(false)} type="button">Cancel</Button>
             <Button type="submit" variant="success" disabled={saving}>{saving ? 'Converting...' : 'Create Customer'}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Book Survey Modal */}
+      <Modal open={surveyModal} onClose={() => setSurveyModal(false)} title="Book Survey" size="lg">
+        <form onSubmit={handleBookSurvey} className="space-y-4">
+          {saveError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{saveError}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <FormInput label="Contact Name" required value={surveyForm.contact_name || ''} onChange={setS('contact_name')} />
+            <FormInput label="Phone" value={surveyForm.contact_phone || ''} onChange={setS('contact_phone')} />
+          </div>
+          <FormInput label="Email" type="email" value={surveyForm.contact_email || ''} onChange={setS('contact_email')} />
+          <FormInput label="Survey Address" required value={surveyForm.address || ''} onChange={setS('address')} placeholder="Full address incl. postcode" />
+          <div className="grid grid-cols-2 gap-3">
+            <FormInput label="Date" required type="date" value={surveyForm.scheduled_date || ''} onChange={setS('scheduled_date')} />
+            <FormInput label="Time" type="time" value={surveyForm.scheduled_time || ''} onChange={setS('scheduled_time')} />
+          </div>
+          <FormSelect label="Job Type" value={surveyForm.job_type || 'supply_only'} onChange={setS('job_type')}>
+            {JOB_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </FormSelect>
+          <FormTextarea label="Notes" value={surveyForm.notes || ''} onChange={setS('notes')} placeholder="Measurements, access info, requirements..." rows={3} />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setSurveyModal(false)} type="button">Cancel</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Booking...' : 'Book Survey'}</Button>
           </div>
         </form>
       </Modal>

@@ -44,7 +44,7 @@ export function useQuote(id) {
     if (!id) return
     setLoading(true)
     Promise.all([
-      supabase.from('quotes').select('*, customers(*)').eq('id', id).single(),
+      supabase.from('quotes').select('*, customers(*), leads(job_type)').eq('id', id).single(),
       supabase.from('quote_items').select('*').eq('quote_id', id).order('created_at'),
     ]).then(([{ data: q, error: qErr }, { data: qi }]) => {
       if (qErr) setError(qErr.message)

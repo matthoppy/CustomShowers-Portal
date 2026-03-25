@@ -11,7 +11,17 @@ import Modal from '../../components/ui/Modal'
 import FormInput, { FormSelect, FormTextarea } from '../../components/ui/FormInput'
 import { formatDate, formatDatetime } from '../../lib/utils'
 
-const STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled']
+const SUPPLY_ONLY_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled']
+const INSTALL_STATUSES = ['ordered', 'in_production', 'ready_to_install', 'in_progress', 'completed', 'cancelled']
+const STATUS_LABELS = {
+  ordered: 'Ordered',
+  in_production: 'In Production',
+  ready_to_install: 'Ready to Install',
+  in_progress: 'In Progress',
+  scheduled: 'Scheduled',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
 const JOB_TYPES = [
   { value: 'supply_only', label: 'Supply Only' },
   { value: 'supply_and_install', label: 'Supply + London Installation' },
@@ -57,10 +67,26 @@ export default function JobDetail() {
     const { count } = await supabase.from('invoices').select('*', { count: 'exact', head: true })
     const invoice_number = `INV-${String((count || 0) + 1).padStart(3, '0')}`
     const dueDate = new Date(); dueDate.setDate(dueDate.getDate() + 30)
+
+    const isInstall = job.job_type === 'supply_and_install'
+    const quoteTotal = Number(job.quotes?.total || 0)
+    const finalTotal = isInstall ? Number((quoteTotal * 0.5).toFixed(2)) : 0
+    const finalSubtotal = isInstall && job.quotes ? Number((Number(job.quotes.subtotal || quoteTotal / 1.2) * 0.5).toFixed(2)) : 0
+    const finalVat = isInstall ? Number((finalTotal - finalSubtotal).toFixed(2)) : 0
+
     const { data } = await supabase.from('invoices').insert([{
-      invoice_number, customer_id: job.customer_id, job_id: id,
-      status: 'unpaid', due_date: dueDate.toISOString().split('T')[0],
-      subtotal: 0, vat_rate: 20, vat_amount: 0, total: 0, amount_paid: 0,
+      invoice_number,
+      customer_id: job.customer_id,
+      job_id: id,
+      status: 'unpaid',
+      invoice_type: isInstall ? 'final' : 'full',
+      due_date: dueDate.toISOString().split('T')[0],
+      subtotal: isInstall ? finalSubtotal : 0,
+      vat_rate: job.quotes?.vat_rate || 20,
+      vat_amount: isInstall ? finalVat : 0,
+      total: isInstall ? finalTotal : 0,
+      amount_paid: 0,
+      notes: isInstall ? `Final 50% payment for job ${job.job_number}` : '',
     }]).select().single()
     if (data) navigate(`/invoices/${data.id}/edit`)
   }
@@ -157,24 +183,26 @@ export default function JobDetail() {
           <Card>
             <CardHeader title="Update Status" />
             <div className="space-y-2">
-              {STATUSES.map((s) => (
+              {(job.job_type === 'supply_and_install' ? INSTALL_STATUSES : SUPPLY_ONLY_STATUSES).map((s) => (
                 <button key={s} onClick={() => handleStatusChange(s)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
                     job.status === s ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 hover:border-indigo-200 hover:bg-slate-50 text-slate-600'
                   }`}>
-                  <span>{s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}</span>
+                  <span>{STATUS_LABELS[s] || s}</span>
                   {job.status === s && <span className="text-xs text-indigo-500">Current</span>}
                 </button>
               ))}
             </div>
           </Card>
 
-          <Card>
-            <CardHeader title="Invoice" />
-            <Button icon={Receipt} variant="primary" className="w-full justify-center" onClick={handleCreateInvoice}>
-              Create Invoice
-            </Button>
-          </Card>
+          {job.status === 'completed' && (
+            <Card>
+              <CardHeader title="Invoice" />
+              <Button icon={Receipt} variant="primary" className="w-full justify-center" onClick={handleCreateInvoice}>
+                {job.job_type === 'supply_and_install' ? 'Create Final Invoice (50%)' : 'Create Invoice'}
+              </Button>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -190,7 +218,9 @@ export default function JobDetail() {
             {customers.map((c) => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
           </FormSelect>
           <FormSelect label="Status" value={form.status || 'scheduled'} onChange={set('status')}>
-            {STATUSES.map((s) => <option key={s} value={s}>{s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+            {(form.job_type === 'supply_and_install' ? INSTALL_STATUSES : SUPPLY_ONLY_STATUSES).map((s) => (
+              <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>
+            ))}
           </FormSelect>
           <FormInput label="Scheduled Date" type="date" value={form.scheduled_date || ''} onChange={set('scheduled_date')} />
           <FormInput label="Completion Date" type="date" value={form.completion_date || ''} onChange={set('completion_date')} />

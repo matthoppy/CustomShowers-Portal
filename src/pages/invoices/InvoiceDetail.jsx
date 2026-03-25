@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Edit2, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Edit2, CheckCircle, Briefcase, Wrench } from 'lucide-react'
 import { useInvoice } from '../../hooks/useInvoices'
+import { supabase } from '../../lib/supabase'
 import Card, { CardHeader } from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
@@ -16,6 +17,31 @@ export default function InvoiceDetail() {
   const [payModal, setPayModal] = useState(false)
   const [payAmount, setPayAmount] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const handleCreateDeal = async () => {
+    const { count } = await supabase.from('deals').select('*', { count: 'exact', head: true })
+    const dealName = `Deal ${String((count || 0) + 1).padStart(3, '0')}`
+    const { data } = await supabase.from('deals').insert([{
+      deal_name: dealName,
+      customer_id: invoice.customer_id,
+      stage: 'ordered_from_supplier',
+      amount: invoice.total,
+    }]).select().single()
+    if (data) navigate(`/deals/${data.id}`)
+  }
+
+  const handleCreateJob = async () => {
+    const { count } = await supabase.from('jobs').select('*', { count: 'exact', head: true })
+    const job_number = `JB-${String((count || 0) + 1).padStart(3, '0')}`
+    const { data } = await supabase.from('jobs').insert([{
+      job_number,
+      customer_id: invoice.customer_id,
+      job_type: 'supply_and_install',
+      title: `Installation — ${invoice.invoice_number}`,
+      status: 'ordered',
+    }]).select().single()
+    if (data) navigate(`/jobs/${data.id}`)
+  }
 
   const handleMarkPaid = async () => {
     setSaving(true)
@@ -184,15 +210,35 @@ export default function InvoiceDetail() {
         )}
 
         {invoice.status === 'paid' && (
-          <Card>
-            <div className="text-center py-2">
-              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
-                <CheckCircle className="w-6 h-6 text-emerald-600" />
+          <>
+            <Card>
+              <div className="text-center py-2">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle className="w-6 h-6 text-emerald-600" />
+                </div>
+                <p className="text-sm font-semibold text-emerald-700">Paid in Full</p>
+                <p className="text-xs text-slate-400 mt-1">{formatDate(invoice.paid_date)}</p>
               </div>
-              <p className="text-sm font-semibold text-emerald-700">Paid in Full</p>
-              <p className="text-xs text-slate-400 mt-1">{formatDate(invoice.paid_date)}</p>
-            </div>
-          </Card>
+            </Card>
+
+            {invoice.invoice_type === 'full' && (
+              <Card>
+                <CardHeader title="Next Step" />
+                <Button icon={Briefcase} variant="primary" className="w-full justify-center" onClick={handleCreateDeal}>
+                  Create Deal
+                </Button>
+              </Card>
+            )}
+
+            {invoice.invoice_type === 'deposit' && (
+              <Card>
+                <CardHeader title="Next Step" />
+                <Button icon={Wrench} variant="primary" className="w-full justify-center" onClick={handleCreateJob}>
+                  Create Job
+                </Button>
+              </Card>
+            )}
+          </>
         )}
       </div>
 

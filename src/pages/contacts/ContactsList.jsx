@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Plus, Search, Globe, PenLine } from 'lucide-react'
+import { Plus, Search, Globe, PenLine, UserPlus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useContacts } from '../../hooks/useContacts'
+import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import FormInput, { FormSelect, FormTextarea } from '../../components/ui/FormInput'
@@ -15,6 +17,13 @@ const SERVICE_TYPES = [
   'Supply + Installation',
   'Other',
 ]
+
+const JOB_TYPES = [
+  { value: 'supply_only', label: 'Supply Only' },
+  { value: 'supply_and_install', label: 'Supply + London Installation' },
+]
+
+const SOURCES = ['Website', 'Referral', 'Google', 'Social Media', 'Checkatrade', 'Other']
 
 const EMPTY_FORM = {
   name: '',
@@ -53,6 +62,7 @@ function formatDate(iso) {
 
 export default function ContactsList() {
   const { contacts, loading, create } = useContacts()
+  const navigate = useNavigate()
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -60,7 +70,82 @@ export default function ContactsList() {
   const [search, setSearch] = useState('')
   const [sortDir, setSortDir] = useState('desc')
 
+  // Convert to Lead state
+  const [convertModal, setConvertModal] = useState(false)
+  const [convertContact, setConvertContact] = useState(null)
+  const [convertForm, setConvertForm] = useState({})
+  const [convertSaving, setConvertSaving] = useState(false)
+  const [convertError, setConvertError] = useState('')
+
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
+  const setC = (k) => (e) => setConvertForm((p) => ({ ...p, [k]: e.target.value }))
+
+  const openConvert = (contact) => {
+    setConvertContact(contact)
+    setConvertForm({
+      job_type: 'supply_only',
+      source: 'Website',
+      notes: contact.message || '',
+    })
+    setConvertError('')
+    setConvertModal(true)
+  }
+
+  const handleConvert = async (e) => {
+    e.preventDefault()
+    setConvertSaving(true)
+    setConvertError('')
+
+    // Check if customer already exists with this email
+    let customerId = null
+    if (convertContact.email) {
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('email', convertContact.email)
+        .maybeSingle()
+      customerId = existing?.id || null
+    }
+
+    // Create customer if none found
+    if (!customerId) {
+      const nameParts = (convertContact.name || '').trim().split(' ')
+      const { data: newCustomer, error: custErr } = await supabase
+        .from('customers')
+        .insert([{
+          first_name: nameParts[0] || convertContact.name,
+          last_name: nameParts.slice(1).join(' ') || '',
+          email: convertContact.email || '',
+          phone: convertContact.phone || '',
+          address_line1: convertContact.address || '',
+        }])
+        .select()
+        .single()
+      if (custErr) { setConvertError(custErr.message); setConvertSaving(false); return }
+      customerId = newCustomer.id
+    }
+
+    // Create the lead
+    const { data: lead, error: leadErr } = await supabase
+      .from('leads')
+      .insert([{
+        name: convertContact.name,
+        email: convertContact.email || '',
+        phone: convertContact.phone || '',
+        source: convertForm.source,
+        job_type: convertForm.job_type,
+        notes: convertForm.notes || '',
+        status: 'new',
+        customer_id: customerId,
+      }])
+      .select()
+      .single()
+
+    setConvertSaving(false)
+    if (leadErr) { setConvertError(leadErr.message); return }
+    setConvertModal(false)
+    navigate(`/leads/${lead.id}`)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -144,6 +229,7 @@ export default function ContactsList() {
                   <th className="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">Service</th>
                   <th className="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">Source</th>
                   <th className="text-left px-4 py-3 font-semibold text-slate-600 text-xs uppercase tracking-wide">Date</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -167,6 +253,15 @@ export default function ContactsList() {
                     <td className="px-4 py-3 text-slate-500">{contact.service_type || '—'}</td>
                     <td className="px-4 py-3"><SourceBadge source={contact.source} /></td>
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(contact.created_at)}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => openConvert(contact)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                      >
+                        <UserPlus className="w-3 h-3" />
+                        Convert to Lead
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -174,6 +269,32 @@ export default function ContactsList() {
           </div>
         )}
       </div>
+
+      {/* Convert to Lead Modal */}
+      <Modal open={convertModal} onClose={() => setConvertModal(false)} title="Convert to Lead">
+        {convertContact && (
+          <form onSubmit={handleConvert} className="space-y-4">
+            {convertError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{convertError}</p>}
+            <div className="bg-slate-50 rounded-lg px-4 py-3 text-sm">
+              <p className="font-medium text-slate-800">{convertContact.name}</p>
+              {convertContact.email && <p className="text-slate-500">{convertContact.email}</p>}
+              {convertContact.phone && <p className="text-slate-500">{convertContact.phone}</p>}
+            </div>
+            <p className="text-xs text-slate-500">A customer record will be created automatically (or linked if this email already exists).</p>
+            <FormSelect label="Job Type" required value={convertForm.job_type || 'supply_only'} onChange={setC('job_type')}>
+              {JOB_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </FormSelect>
+            <FormSelect label="Lead Source" value={convertForm.source || 'Website'} onChange={setC('source')}>
+              {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </FormSelect>
+            <FormTextarea label="Notes" value={convertForm.notes || ''} onChange={setC('notes')} placeholder="Requirements, project details..." rows={3} />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" type="button" onClick={() => setConvertModal(false)}>Cancel</Button>
+              <Button type="submit" disabled={convertSaving}>{convertSaving ? 'Creating...' : 'Create Lead'}</Button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* Add Contact Modal */}
       <Modal open={modal} onClose={() => { setModal(false); setForm(EMPTY_FORM); setError('') }} title="Add New Contact">

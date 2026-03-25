@@ -50,7 +50,7 @@ export function useJob(id) {
     setLoading(true)
     supabase
       .from('jobs')
-      .select('*, customers(*), quotes(quote_number, total)')
+      .select('*, customers(*), quotes(quote_number, total, subtotal, vat_rate, vat_amount)')
       .eq('id', id)
       .single()
       .then(({ data, error }) => {
