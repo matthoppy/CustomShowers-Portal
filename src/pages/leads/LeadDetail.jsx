@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Mail, Phone, UserCheck } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, UserCheck, PhoneIncoming, PhoneMissed, PhoneOff } from 'lucide-react'
 import { useLead } from '../../hooks/useLeads'
+import { useLeadCalls } from '../../hooks/useCalls'
 import { supabase } from '../../lib/supabase'
 import Card, { CardHeader } from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
@@ -10,6 +11,19 @@ import Modal from '../../components/ui/Modal'
 import FormInput, { FormSelect, FormTextarea } from '../../components/ui/FormInput'
 import { formatDatetime } from '../../lib/utils'
 
+const CALL_STATUS = {
+  completed:    { label: 'Answered', className: 'bg-green-100 text-green-700',  Icon: PhoneIncoming },
+  'no-answer':  { label: 'Missed',   className: 'bg-amber-100 text-amber-700',  Icon: PhoneMissed },
+  busy:         { label: 'Busy',     className: 'bg-orange-100 text-orange-700',Icon: PhoneOff },
+  failed:       { label: 'Failed',   className: 'bg-red-100 text-red-700',      Icon: PhoneOff },
+}
+
+function formatDuration(s) {
+  if (!s) return ''
+  const m = Math.floor(s / 60); const sec = s % 60
+  return m > 0 ? ` · ${m}m ${sec}s` : ` · ${sec}s`
+}
+
 const STATUSES = ['new', 'contacted', 'qualified', 'lost']
 const SOURCES = ['Website', 'Referral', 'Google', 'Social Media', 'Checkatrade', 'Other']
 
@@ -17,6 +31,7 @@ export default function LeadDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { lead, loading, error, update, setLead } = useLead(id)
+  const { calls } = useLeadCalls(id)
   const [editModal, setEditModal] = useState(false)
   const [convertModal, setConvertModal] = useState(false)
   const [form, setForm] = useState({})
@@ -175,6 +190,30 @@ export default function LeadDetail() {
           )}
         </Card>
       </div>
+
+      {/* Call History */}
+      {calls.length > 0 && (
+        <Card>
+          <CardHeader title="Call History" />
+          <div className="space-y-2">
+            {calls.map((c) => {
+              const cfg = CALL_STATUS[c.status] || { label: c.status, className: 'bg-slate-100 text-slate-600', Icon: PhoneIncoming }
+              return (
+                <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                  <div className="flex items-center gap-2.5">
+                    <cfg.Icon className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="text-sm text-slate-700">{formatDatetime(c.started_at || c.created_at)}{formatDuration(c.duration)}</p>
+                      <p className="text-xs text-slate-400">{c.caller_number}</p>
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cfg.className}`}>{cfg.label}</span>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Edit Modal */}
       <Modal open={editModal} onClose={() => setEditModal(false)} title="Edit Lead">

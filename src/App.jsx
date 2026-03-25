@@ -20,6 +20,7 @@ import DealDetail from './pages/deals/DealDetail'
 import ContactsList from './pages/contacts/ContactsList'
 import SurveysList from './pages/surveys/SurveysList'
 import SurveyDetail from './pages/surveys/SurveyDetail'
+import CallsList from './pages/calls/CallsList'
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/leads/:id" element={<LeadDetail />} />
             <Route path="/surveys" element={<SurveysList />} />
             <Route path="/surveys/:id" element={<SurveyDetail />} />
+            <Route path="/calls" element={<CallsList />} />
             <Route path="/deals" element={<DealsList />} />
             <Route path="/deals/:id" element={<DealDetail />} />
             <Route path="/customers" element={<CustomersList />} />

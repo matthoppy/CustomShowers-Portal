@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, UserPlus, Users, FileText,
-  Wrench, Receipt, Handshake, BookUser, ClipboardList,
+  Wrench, Receipt, Handshake, BookUser, ClipboardList, Phone,
 } from 'lucide-react'
 
 const navItems = [
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/contacts', icon: BookUser, label: 'Contacts' },
   { to: '/leads', icon: UserPlus, label: 'Leads' },
   { to: '/surveys', icon: ClipboardList, label: 'Surveys' },
+  { to: '/calls', icon: Phone, label: 'Calls' },
   { to: '/deals', icon: Handshake, label: 'Deals' },
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/quotes', icon: FileText, label: 'Quotes' },
