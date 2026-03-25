@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Edit2, Receipt } from 'lucide-react'
-import { useJob } from '../../hooks/useJobs'
+import { ArrowLeft, Edit2, Receipt, Plus, Trash2, CheckCircle2, Clock } from 'lucide-react'
+import { useJob, useJobItems } from '../../hooks/useJobs'
 import { useCustomers } from '../../hooks/useCustomers'
 import { supabase } from '../../lib/supabase'
 import Card, { CardHeader } from '../../components/ui/Card'
@@ -9,7 +9,22 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import FormInput, { FormSelect, FormTextarea } from '../../components/ui/FormInput'
-import { formatDate, formatDatetime } from '../../lib/utils'
+import { formatDate, formatDatetime, formatCurrency } from '../../lib/utils'
+
+const BATHROOM_LABELS = [
+  'Bathroom',
+  'Bathroom 1',
+  'Bathroom 2',
+  'Bathroom 3',
+  'Downstairs Bathroom',
+  'Downstairs Ensuite',
+  'Ensuite',
+  'Guest Ensuite',
+  'Master Ensuite',
+  'Upstairs Bathroom',
+  'Upstairs Ensuite',
+  'Custom…',
+]
 
 const SUPPLY_ONLY_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled']
 const INSTALL_STATUSES = ['ordered', 'in_production', 'ready_to_install', 'in_progress', 'completed', 'cancelled']
@@ -32,12 +47,36 @@ export default function JobDetail() {
   const navigate = useNavigate()
   const { job, loading, error, update, setJob } = useJob(id)
   const { customers } = useCustomers()
+  const { items: showers, add: addShower, update: updateShower, remove: removeShower } = useJobItems(id)
+
   const [editModal, setEditModal] = useState(false)
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesVal, setNotesVal] = useState('')
+
+  // Shower state
+  const [showerModal, setShowerModal] = useState(false)
+  const [showerForm, setShowerForm] = useState({ bathroom_label: 'Bathroom', custom_label: '', description: '', notes: '' })
+  const [showerSaving, setShowerSaving] = useState(false)
+
+  const setSF = (k) => (e) => setShowerForm((p) => ({ ...p, [k]: e.target.value }))
+
+  const handleAddShower = async (e) => {
+    e.preventDefault()
+    setShowerSaving(true)
+    const label = showerForm.bathroom_label === 'Custom…' ? showerForm.custom_label : showerForm.bathroom_label
+    await addShower({ bathroom_label: label, description: showerForm.description, notes: showerForm.notes })
+    setShowerSaving(false)
+    setShowerModal(false)
+    setShowerForm({ bathroom_label: 'Bathroom', custom_label: '', description: '', notes: '' })
+  }
+
+  const handleToggleShowerStatus = async (shower) => {
+    const newStatus = shower.status === 'installed' ? 'pending' : 'installed'
+    await updateShower(shower.id, { status: newStatus })
+  }
 
   const openEdit = () => { setForm({ ...job }); setEditModal(true) }
   const openNotesEdit = () => { setNotesVal(job.notes || ''); setEditingNotes(true) }
@@ -151,6 +190,63 @@ export default function JobDetail() {
             )}
           </Card>
 
+          {/* Showers */}
+          <Card padding={false}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-800">Showers</h3>
+              <button
+                onClick={() => setShowerModal(true)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Shower
+              </button>
+            </div>
+            {showers.length === 0 ? (
+              <div className="px-6 py-6 text-sm text-slate-400 italic">No showers added yet — click "Add Shower" to start.</div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {showers.map((shower) => (
+                  <div key={shower.id} className="px-6 py-3 flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <button
+                        onClick={() => handleToggleShowerStatus(shower)}
+                        className={`mt-0.5 shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                          shower.status === 'installed'
+                            ? 'bg-emerald-500 border-emerald-500 text-white'
+                            : 'border-slate-300 hover:border-indigo-400'
+                        }`}
+                        title={shower.status === 'installed' ? 'Mark as pending' : 'Mark as installed'}
+                      >
+                        {shower.status === 'installed' && <CheckCircle2 className="w-3 h-3" />}
+                      </button>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-slate-800">{shower.bathroom_label}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            shower.status === 'installed'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {shower.status === 'installed' ? 'Installed' : 'Pending'}
+                          </span>
+                        </div>
+                        {shower.description && <p className="text-xs text-slate-500 mt-0.5">{shower.description}</p>}
+                        {shower.notes && <p className="text-xs text-slate-400 mt-0.5 italic">{shower.notes}</p>}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeShower(shower.id)}
+                      className="shrink-0 p-1 text-slate-300 hover:text-red-500 transition-colors"
+                      title="Remove shower"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
           <Card>
             <CardHeader title="Notes"
               action={!editingNotes && (
@@ -229,6 +325,24 @@ export default function JobDetail() {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setEditModal(false)} type="button">Cancel</Button>
             <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Shower Modal */}
+      <Modal open={showerModal} onClose={() => setShowerModal(false)} title="Add Shower">
+        <form onSubmit={handleAddShower} className="space-y-4">
+          <FormSelect label="Bathroom" required value={showerForm.bathroom_label} onChange={setSF('bathroom_label')}>
+            {BATHROOM_LABELS.map((l) => <option key={l} value={l}>{l}</option>)}
+          </FormSelect>
+          {showerForm.bathroom_label === 'Custom…' && (
+            <FormInput label="Custom Name" required value={showerForm.custom_label} onChange={setSF('custom_label')} placeholder="e.g. Pool House, Loft Conversion" />
+          )}
+          <FormInput label="Description" value={showerForm.description} onChange={setSF('description')} placeholder="e.g. Frameless walk-in, 1200mm, clear glass" />
+          <FormTextarea label="Notes" value={showerForm.notes} onChange={setSF('notes')} placeholder="Access info, special requirements..." rows={2} />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" type="button" onClick={() => setShowerModal(false)}>Cancel</Button>
+            <Button type="submit" disabled={showerSaving}>{showerSaving ? 'Adding...' : 'Add Shower'}</Button>
           </div>
         </form>
       </Modal>

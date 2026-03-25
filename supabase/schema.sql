@@ -239,6 +239,25 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS job_type TEXT DEFAULT 'supply_only';
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS glass_supplier TEXT;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS hardware_supplier TEXT;
 
+-- ============================================================
+-- JOB ITEMS TABLE
+-- Individual showers per job, each tagged with a bathroom label.
+-- ============================================================
+
+CREATE TABLE job_items (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  job_id         UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  bathroom_label TEXT NOT NULL,
+  description    TEXT,
+  notes          TEXT,
+  status         TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'installed'))
+);
+
+ALTER TABLE job_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users only" ON job_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE INDEX idx_job_items_job_id ON job_items(job_id);
+
 -- Extended job statuses for install track (ordered, in_production, ready_to_install)
 -- Drop existing constraint and recreate with expanded values
 ALTER TABLE jobs DROP CONSTRAINT IF EXISTS jobs_status_check;

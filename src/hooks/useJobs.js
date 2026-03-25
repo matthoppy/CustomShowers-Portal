@@ -68,3 +68,42 @@ export function useJob(id) {
 
   return { job, loading, error, update, setJob }
 }
+
+export function useJobItems(jobId) {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const fetch = useCallback(async () => {
+    if (!jobId) return
+    setLoading(true)
+    const { data } = await supabase
+      .from('job_items')
+      .select('*')
+      .eq('job_id', jobId)
+      .order('created_at')
+    setItems(data || [])
+    setLoading(false)
+  }, [jobId])
+
+  useEffect(() => { fetch() }, [fetch])
+
+  const add = async (fields) => {
+    const { data, error } = await supabase.from('job_items').insert([{ ...fields, job_id: jobId }]).select().single()
+    if (!error) setItems((prev) => [...prev, data])
+    return { data, error }
+  }
+
+  const update = async (id, fields) => {
+    const { data, error } = await supabase.from('job_items').update(fields).eq('id', id).select().single()
+    if (!error) setItems((prev) => prev.map((i) => (i.id === id ? data : i)))
+    return { data, error }
+  }
+
+  const remove = async (id) => {
+    const { error } = await supabase.from('job_items').delete().eq('id', id)
+    if (!error) setItems((prev) => prev.filter((i) => i.id !== id))
+    return { error }
+  }
+
+  return { items, loading, add, update, remove }
+}
