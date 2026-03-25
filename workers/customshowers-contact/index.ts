@@ -4,13 +4,11 @@
  * Handles website contact form submissions from customshowers.uk.
  * On each submission it:
  *   1. Verifies the Cloudflare Turnstile token
- *   2. Creates/updates a contact in HubSpot
- *   3. Inserts a row into the Supabase `contacts` table so the lead
+ *   2. Inserts a row into the Supabase `contacts` table so the lead
  *      appears in the CRM portal at crm.customshowers.uk
- *   4. Sends an email notification to sales@customshowers.uk via Resend
+ *   3. Sends an email notification to sales@customshowers.uk via Resend
  *
  * Required environment variables (set in Cloudflare dashboard or wrangler.toml):
- *   HUBSPOT_API_KEY        — HubSpot private app token
  *   SUPABASE_URL           — https://qgfmsyxaccvwmmygtspf.supabase.co
  *   SUPABASE_SERVICE_KEY   — Service-role key (from Supabase project settings → API)
  *   ALLOWED_ORIGIN         — e.g. https://customshowers.uk (for CORS)
@@ -19,7 +17,6 @@
  */
 
 interface Env {
-  HUBSPOT_API_KEY: string
   SUPABASE_URL: string
   SUPABASE_SERVICE_KEY: string
   ALLOWED_ORIGIN?: string
@@ -122,75 +119,10 @@ export default {
       }
     }
 
-    const errors: string[] = []
-
     // ---------------------------------------------------------------
-    // 1. HubSpot — create or update contact
+    // 1. Supabase — insert into contacts table
     // ---------------------------------------------------------------
-    try {
-      const [firstName, ...rest] = name.trim().split(' ')
-      const lastName = rest.join(' ') || ''
-
-      const hsPayload = {
-        properties: {
-          email,
-          firstname: firstName,
-          lastname: lastName,
-          phone: phone || '',
-          address: address || '',
-          hs_lead_status: 'NEW',
-          lifecyclestage: 'lead',
-          shower_service_type: service_type || '',
-          message: message || '',
-          hs_analytics_source: utm_source || '',
-          hs_analytics_source_data_1: utm_medium || '',
-          hs_analytics_source_data_2: utm_campaign || '',
-          utm_source: utm_source || '',
-          utm_medium: utm_medium || '',
-          utm_campaign: utm_campaign || '',
-          utm_term: utm_term || '',
-          utm_content: utm_content || '',
-          gclid: gclid || '',
-        },
-      }
-
-      const hsRes = await fetch(
-        'https://api.hubapi.com/crm/v3/objects/contacts',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${env.HUBSPOT_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(hsPayload),
-        }
-      )
-
-      if (!hsRes.ok) {
-        const hsBody = await hsRes.text()
-        if (hsRes.status === 409) {
-          await fetch(
-            `https://api.hubapi.com/crm/v3/objects/contacts/${encodeURIComponent(email)}?idProperty=email`,
-            {
-              method: 'PATCH',
-              headers: {
-                Authorization: `Bearer ${env.HUBSPOT_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ properties: hsPayload.properties }),
-            }
-          )
-        } else {
-          errors.push(`HubSpot error: ${hsBody}`)
-        }
-      }
-    } catch (err) {
-      errors.push(`HubSpot exception: ${String(err)}`)
-    }
-
-    // ---------------------------------------------------------------
-    // 2. Supabase — insert into contacts table
-    // ---------------------------------------------------------------
+    let supabaseOk = false
     try {
       const supabaseRes = await fetch(
         `${env.SUPABASE_URL}/rest/v1/contacts`,
@@ -222,14 +154,16 @@ export default {
 
       if (!supabaseRes.ok) {
         const sbBody = await supabaseRes.text()
-        errors.push(`Supabase error: ${sbBody}`)
+        console.error('Supabase error:', sbBody)
+      } else {
+        supabaseOk = true
       }
     } catch (err) {
-      errors.push(`Supabase exception: ${String(err)}`)
+      console.error('Supabase exception:', String(err))
     }
 
     // ---------------------------------------------------------------
-    // 3. Resend — email notification to sales@customshowers.uk
+    // 2. Resend — email notification to sales@customshowers.uk
     // ---------------------------------------------------------------
     if (env.RESEND_API_KEY) {
       try {
@@ -276,17 +210,11 @@ export default {
       }
     }
 
-    // If both HubSpot and Supabase failed, return 500
-    if (errors.length === 2) {
-      console.error('Both integrations failed:', errors)
+    if (!supabaseOk) {
       return new Response(
         JSON.stringify({ success: false, message: 'Something went wrong, please try again.' }),
         { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } }
       )
-    }
-
-    if (errors.length > 0) {
-      console.warn('Partial failure:', errors)
     }
 
     return new Response(
