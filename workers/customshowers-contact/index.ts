@@ -37,6 +37,13 @@ interface ContactFormPayload {
   message?: string
   turnstileToken?: string
   photo?: { name: string; type: string; data: string } | null
+  // Google Ads / UTM tracking
+  utm_source?: string
+  utm_medium?: string
+  utm_campaign?: string
+  utm_term?: string
+  utm_content?: string
+  gclid?: string
 }
 
 const corsHeaders = (origin: string) => ({
@@ -75,6 +82,12 @@ export default {
     // Normalise field names — form sends camelCase, normalise to snake_case
     const { name, email, phone, address, message } = body
     const service_type = body.service_type || body.serviceType || null
+    const utm_source   = body.utm_source   || null
+    const utm_medium   = body.utm_medium   || null
+    const utm_campaign = body.utm_campaign || null
+    const utm_term     = body.utm_term     || null
+    const utm_content  = body.utm_content  || null
+    const gclid        = body.gclid        || null
 
     if (!name || !email) {
       return new Response(JSON.stringify({ error: 'name and email are required' }), {
@@ -129,6 +142,15 @@ export default {
           lifecyclestage: 'lead',
           shower_service_type: service_type || '',
           message: message || '',
+          hs_analytics_source: utm_source || '',
+          hs_analytics_source_data_1: utm_medium || '',
+          hs_analytics_source_data_2: utm_campaign || '',
+          utm_source: utm_source || '',
+          utm_medium: utm_medium || '',
+          utm_campaign: utm_campaign || '',
+          utm_term: utm_term || '',
+          utm_content: utm_content || '',
+          gclid: gclid || '',
         },
       }
 
@@ -188,6 +210,12 @@ export default {
             source: 'website',
             service_type: service_type || null,
             message: message || null,
+            utm_source:   utm_source   || null,
+            utm_medium:   utm_medium   || null,
+            utm_campaign: utm_campaign || null,
+            utm_term:     utm_term     || null,
+            utm_content:  utm_content  || null,
+            gclid:        gclid        || null,
           }),
         }
       )
@@ -205,6 +233,16 @@ export default {
     // ---------------------------------------------------------------
     if (env.RESEND_API_KEY) {
       try {
+        const adsSection = (utm_source || gclid) ? `
+          <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0">
+          <p style="color:#1a2942;font-weight:600">Ad Attribution</p>
+          ${utm_source   ? `<p><strong>UTM Source:</strong> ${utm_source}</p>` : ''}
+          ${utm_medium   ? `<p><strong>UTM Medium:</strong> ${utm_medium}</p>` : ''}
+          ${utm_campaign ? `<p><strong>UTM Campaign:</strong> ${utm_campaign}</p>` : ''}
+          ${utm_term     ? `<p><strong>UTM Term:</strong> ${utm_term}</p>` : ''}
+          ${utm_content  ? `<p><strong>UTM Content:</strong> ${utm_content}</p>` : ''}
+          ${gclid        ? `<p><strong>Google Click ID:</strong> ${gclid}</p>` : ''}
+        ` : ''
         const htmlBody = `
           <h2>New Website Enquiry</h2>
           <p><strong>Name:</strong> ${name}</p>
@@ -214,6 +252,7 @@ export default {
           <p><strong>Service Type:</strong> ${service_type || '—'}</p>
           <p><strong>Message:</strong></p>
           <p>${message ? message.replace(/\n/g, '<br>') : '—'}</p>
+          ${adsSection}
           <p style="color:#64748b;font-size:12px">✅ Also saved to CRM portal contacts.</p>
         `
         const resendRes = await fetch('https://api.resend.com/emails', {

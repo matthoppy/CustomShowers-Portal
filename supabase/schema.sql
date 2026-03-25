@@ -263,3 +263,21 @@ CREATE INDEX idx_job_items_job_id ON job_items(job_id);
 ALTER TABLE jobs DROP CONSTRAINT IF EXISTS jobs_status_check;
 ALTER TABLE jobs ADD CONSTRAINT jobs_status_check
   CHECK (status IN ('ordered', 'in_production', 'ready_to_install', 'scheduled', 'in_progress', 'completed', 'cancelled'));
+
+-- ============================================================
+-- GOOGLE ADS / UTM TRACKING
+-- Capture UTM parameters and Google Click ID (gclid) on contacts
+-- submitted via the website contact form, so ad spend can be
+-- attributed to enquiries and eventual sales.
+-- ============================================================
+
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS utm_source   TEXT;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS utm_medium   TEXT;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS utm_campaign TEXT;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS utm_term     TEXT;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS utm_content  TEXT;
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS gclid        TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_contacts_utm_source   ON contacts(utm_source);
+CREATE INDEX IF NOT EXISTS idx_contacts_utm_campaign ON contacts(utm_campaign);
+CREATE INDEX IF NOT EXISTS idx_contacts_gclid        ON contacts(gclid);
