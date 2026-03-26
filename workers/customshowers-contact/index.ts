@@ -4,13 +4,12 @@
  * Handles website contact form submissions from customshowers.uk.
  * On each submission it:
  *   1. Verifies the Cloudflare Turnstile token
- *   2. Creates/updates a contact in HubSpot
- *   3. Inserts a row into the Supabase `contacts` table so the lead
+ *   2. Inserts a row into the Supabase `contacts` table so the lead
  *      appears in the CRM portal at crm.customshowers.uk
+ *   3. Fires a Google Ads server-side conversion ping
  *   4. Sends an email notification to sales@customshowers.uk via Resend
  *
  * Required environment variables (set in Cloudflare dashboard or wrangler.toml):
- *   HUBSPOT_API_KEY        — HubSpot private app token
  *   SUPABASE_URL           — https://qgfmsyxaccvwmmygtspf.supabase.co
  *   SUPABASE_SERVICE_KEY   — Service-role key (from Supabase project settings → API)
  *   ALLOWED_ORIGIN         — e.g. https://customshowers.uk (for CORS)
@@ -18,8 +17,10 @@
  *   RESEND_API_KEY         — Resend API key (for email notifications)
  */
 
+const GOOGLE_ADS_CONVERSION_ID    = '18009060377'
+const GOOGLE_ADS_CONVERSION_LABEL = 'XXJmCLrcKJAcEJnosYtD'
+
 interface Env {
-  HUBSPOT_API_KEY: string
   SUPABASE_URL: string
   SUPABASE_SERVICE_KEY: string
   ALLOWED_ORIGIN?: string
@@ -37,6 +38,13 @@ interface ContactFormPayload {
   message?: string
   turnstileToken?: string
   photo?: { name: string; type: string; data: string } | null
+  // Google Ads / UTM tracking
+  utm_source?: string
+  utm_medium?: string
+  utm_campaign?: string
+  utm_term?: string
+  utm_content?: string
+  gclid?: string
 }
 
 const corsHeaders = (origin: string) => ({
@@ -75,6 +83,12 @@ export default {
     // Normalise field names — form sends camelCase, normalise to snake_case
     const { name, email, phone, address, message } = body
     const service_type = body.service_type || body.serviceType || null
+    const utm_source   = body.utm_source   || null
+    const utm_medium   = body.utm_medium   || null
+    const utm_campaign = body.utm_campaign || null
+    const utm_term     = body.utm_term     || null
+    const utm_content  = body.utm_content  || null
+    const gclid        = body.gclid        || null
 
     if (!name || !email) {
       return new Response(JSON.stringify({ error: 'name and email are required' }), {
@@ -104,71 +118,14 @@ export default {
           })
         }
       } catch {
-        // If Turnstile verification fails due to network, continue anyway
         console.warn('Turnstile verification skipped due to error')
       }
     }
 
-    const errors: string[] = []
-
     // ---------------------------------------------------------------
-    // 1. HubSpot — create or update contact
+    // 1. Supabase — insert into contacts table
     // ---------------------------------------------------------------
-    try {
-      const [firstName, ...rest] = name.trim().split(' ')
-      const lastName = rest.join(' ') || ''
-
-      const hsPayload = {
-        properties: {
-          email,
-          firstname: firstName,
-          lastname: lastName,
-          phone: phone || '',
-          address: address || '',
-          hs_lead_status: 'NEW',
-          lifecyclestage: 'lead',
-          shower_service_type: service_type || '',
-          message: message || '',
-        },
-      }
-
-      const hsRes = await fetch(
-        'https://api.hubapi.com/crm/v3/objects/contacts',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${env.HUBSPOT_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(hsPayload),
-        }
-      )
-
-      if (!hsRes.ok) {
-        const hsBody = await hsRes.text()
-        if (hsRes.status === 409) {
-          await fetch(
-            `https://api.hubapi.com/crm/v3/objects/contacts/${encodeURIComponent(email)}?idProperty=email`,
-            {
-              method: 'PATCH',
-              headers: {
-                Authorization: `Bearer ${env.HUBSPOT_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ properties: hsPayload.properties }),
-            }
-          )
-        } else {
-          errors.push(`HubSpot error: ${hsBody}`)
-        }
-      }
-    } catch (err) {
-      errors.push(`HubSpot exception: ${String(err)}`)
-    }
-
-    // ---------------------------------------------------------------
-    // 2. Supabase — insert into contacts table
-    // ---------------------------------------------------------------
+    let supabaseOk = false
     try {
       const supabaseRes = await fetch(
         `${env.SUPABASE_URL}/rest/v1/contacts`,
@@ -183,21 +140,48 @@ export default {
           body: JSON.stringify({
             name,
             email,
-            phone: phone || null,
-            address: address || null,
-            source: 'website',
+            phone:        phone        || null,
+            address:      address      || null,
+            source:       'website',
             service_type: service_type || null,
-            message: message || null,
+            message:      message      || null,
+            utm_source:   utm_source   || null,
+            utm_medium:   utm_medium   || null,
+            utm_campaign: utm_campaign || null,
+            utm_term:     utm_term     || null,
+            utm_content:  utm_content  || null,
+            gclid:        gclid        || null,
           }),
         }
       )
 
       if (!supabaseRes.ok) {
-        const sbBody = await supabaseRes.text()
-        errors.push(`Supabase error: ${sbBody}`)
+        console.error('Supabase error:', await supabaseRes.text())
+      } else {
+        supabaseOk = true
       }
     } catch (err) {
-      errors.push(`Supabase exception: ${String(err)}`)
+      console.error('Supabase exception:', String(err))
+    }
+
+    // ---------------------------------------------------------------
+    // 2. Google Ads — server-side conversion ping
+    // ---------------------------------------------------------------
+    try {
+      const params = new URLSearchParams({
+        value:         '0',
+        currency_code: 'GBP',
+        label:         GOOGLE_ADS_CONVERSION_LABEL,
+        script:        '0',
+        oid:           email,
+      })
+      if (gclid) params.set('gclid', gclid)
+      await fetch(
+        `https://www.googleadservices.com/pagead/conversion/${GOOGLE_ADS_CONVERSION_ID}/?${params.toString()}`,
+        { method: 'GET' }
+      )
+    } catch (err) {
+      console.error('Google Ads conversion ping failed:', String(err))
     }
 
     // ---------------------------------------------------------------
@@ -205,6 +189,16 @@ export default {
     // ---------------------------------------------------------------
     if (env.RESEND_API_KEY) {
       try {
+        const adsSection = (utm_source || gclid) ? `
+          <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0">
+          <p style="color:#1a2942;font-weight:600">Ad Attribution</p>
+          ${utm_source   ? `<p><strong>UTM Source:</strong> ${utm_source}</p>`   : ''}
+          ${utm_medium   ? `<p><strong>UTM Medium:</strong> ${utm_medium}</p>`   : ''}
+          ${utm_campaign ? `<p><strong>UTM Campaign:</strong> ${utm_campaign}</p>` : ''}
+          ${utm_term     ? `<p><strong>UTM Term:</strong> ${utm_term}</p>`       : ''}
+          ${utm_content  ? `<p><strong>UTM Content:</strong> ${utm_content}</p>` : ''}
+          ${gclid        ? `<p><strong>Google Click ID:</strong> ${gclid}</p>`   : ''}
+        ` : ''
         const htmlBody = `
           <h2>New Website Enquiry</h2>
           <p><strong>Name:</strong> ${name}</p>
@@ -214,6 +208,7 @@ export default {
           <p><strong>Service Type:</strong> ${service_type || '—'}</p>
           <p><strong>Message:</strong></p>
           <p>${message ? message.replace(/\n/g, '<br>') : '—'}</p>
+          ${adsSection}
           <p style="color:#64748b;font-size:12px">✅ Also saved to CRM portal contacts.</p>
         `
         const resendRes = await fetch('https://api.resend.com/emails', {
@@ -223,10 +218,10 @@ export default {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'Custom Showers Website <noreply@customshowers.uk>',
-            to: ['sales@customshowers.uk'],
+            from:    'Custom Showers Website <noreply@customshowers.uk>',
+            to:      ['sales@customshowers.uk'],
             subject: `New Enquiry from ${name}`,
-            html: htmlBody,
+            html:    htmlBody,
           }),
         })
         if (!resendRes.ok) {
@@ -237,17 +232,11 @@ export default {
       }
     }
 
-    // If both HubSpot and Supabase failed, return 500
-    if (errors.length === 2) {
-      console.error('Both integrations failed:', errors)
+    if (!supabaseOk) {
       return new Response(
         JSON.stringify({ success: false, message: 'Something went wrong, please try again.' }),
         { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } }
       )
-    }
-
-    if (errors.length > 0) {
-      console.warn('Partial failure:', errors)
     }
 
     return new Response(
