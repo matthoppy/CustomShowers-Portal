@@ -18,6 +18,7 @@ import InvoiceDetail from './pages/invoices/InvoiceDetail'
 import DealsList from './pages/deals/DealsList'
 import DealDetail from './pages/deals/DealDetail'
 import ContactsList from './pages/contacts/ContactsList'
+import ContactDetail from './pages/contacts/ContactDetail'
 import SurveysList from './pages/surveys/SurveysList'
 import SurveyDetail from './pages/surveys/SurveyDetail'
 import CallsList from './pages/calls/CallsList'
@@ -31,6 +32,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/contacts" element={<ContactsList />} />
+            <Route path="/contacts/:id" element={<ContactDetail />} />
             <Route path="/leads" element={<LeadsList />} />
             <Route path="/leads/:id" element={<LeadDetail />} />
             <Route path="/surveys" element={<SurveysList />} />

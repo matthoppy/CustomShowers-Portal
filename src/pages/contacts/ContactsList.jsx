@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Search, Globe, PenLine, UserPlus } from 'lucide-react'
+import { Plus, Search, Globe, PenLine, UserPlus, Trash2, AlertCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useContacts } from '../../hooks/useContacts'
 import { supabase } from '../../lib/supabase'
@@ -61,7 +61,7 @@ function formatDate(iso) {
 }
 
 export default function ContactsList() {
-  const { contacts, loading, create } = useContacts()
+  const { contacts, loading, create, remove } = useContacts()
   const navigate = useNavigate()
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -77,6 +77,12 @@ export default function ContactsList() {
   const [convertSaving, setConvertSaving] = useState(false)
   const [convertError, setConvertError] = useState('')
 
+  // Delete state
+  const [deleteModal, setDeleteModal] = useState(false)
+  const [deleteContact, setDeleteContact] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
   const setC = (k) => (e) => setConvertForm((p) => ({ ...p, [k]: e.target.value }))
 
@@ -89,6 +95,25 @@ export default function ContactsList() {
     })
     setConvertError('')
     setConvertModal(true)
+  }
+
+  const openDelete = (contact) => {
+    setDeleteContact(contact)
+    setDeleteError('')
+    setDeleteModal(true)
+  }
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    setDeleteError('')
+    const { error } = await remove(deleteContact.id)
+    setDeleting(false)
+    if (error) {
+      setDeleteError(error.message)
+    } else {
+      setDeleteModal(false)
+      setDeleteContact(null)
+    }
   }
 
   const handleConvert = async (e) => {
@@ -234,18 +259,18 @@ export default function ContactsList() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((contact) => (
-                  <tr key={contact.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={contact.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => navigate(`/contacts/${contact.id}`)}>
                     <td className="px-4 py-3 font-medium text-slate-800">{contact.name}</td>
                     <td className="px-4 py-3 text-slate-600">
                       {contact.email ? (
-                        <a href={`mailto:${contact.email}`} className="hover:text-blue-600 hover:underline">
+                        <a href={`mailto:${contact.email}`} onClick={(e) => e.stopPropagation()} className="hover:text-blue-600 hover:underline">
                           {contact.email}
                         </a>
                       ) : '—'}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
                       {contact.phone ? (
-                        <a href={`tel:${contact.phone}`} className="hover:text-blue-600 hover:underline">
+                        <a href={`tel:${contact.phone}`} onClick={(e) => e.stopPropagation()} className="hover:text-blue-600 hover:underline">
                           {contact.phone}
                         </a>
                       ) : '—'}
@@ -253,13 +278,20 @@ export default function ContactsList() {
                     <td className="px-4 py-3 text-slate-500">{contact.service_type || '—'}</td>
                     <td className="px-4 py-3"><SourceBadge source={contact.source} /></td>
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(contact.created_at)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => openConvert(contact)}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
                       >
                         <UserPlus className="w-3 h-3" />
-                        Convert to Lead
+                        Convert
+                      </button>
+                      <button
+                        onClick={() => openDelete(contact)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                        title="Delete contact"
+                      >
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </td>
                   </tr>
@@ -358,6 +390,30 @@ export default function ContactsList() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="Delete Contact">
+        {deleteContact && (
+          <div className="space-y-4">
+            {deleteError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{deleteError}</p>}
+            <div className="flex gap-3">
+              <div className="flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-800 mb-1">Delete this contact?</p>
+                <p className="text-sm text-slate-600">This will permanently delete <span className="font-medium">{deleteContact.name}</span> and cannot be undone.</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setDeleteModal(false)} type="button">Cancel</Button>
+              <Button variant="danger" disabled={deleting} onClick={handleDelete}>
+                {deleting ? 'Deleting...' : 'Delete Contact'}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )
