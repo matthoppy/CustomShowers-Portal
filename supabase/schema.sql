@@ -324,3 +324,24 @@ CREATE INDEX idx_tasks_customer_id  ON tasks(customer_id);
 CREATE INDEX idx_tasks_status       ON tasks(status);
 CREATE INDEX idx_tasks_due_date     ON tasks(due_date);
 CREATE INDEX idx_tasks_priority     ON tasks(priority);
+
+-- ============================================================
+-- GMAIL TOKENS TABLE
+-- Store OAuth tokens for Gmail API access
+-- ============================================================
+
+CREATE TABLE gmail_tokens (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  user_id           TEXT UNIQUE NOT NULL,
+  access_token      TEXT NOT NULL,
+  refresh_token     TEXT,
+  expires_at        TIMESTAMPTZ,
+  last_sync         TIMESTAMPTZ
+);
+
+ALTER TABLE gmail_tokens ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role only" ON gmail_tokens FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+CREATE INDEX idx_gmail_tokens_user_id ON gmail_tokens(user_id);

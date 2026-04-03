@@ -11,6 +11,7 @@ import Modal from '../../components/ui/Modal'
 import FormInput, { FormSelect, FormTextarea } from '../../components/ui/FormInput'
 import ActivityTimeline from '../../components/ActivityTimeline'
 import TaskList from '../../components/TaskList'
+import GmailSync from '../../components/GmailSync'
 import { formatDatetime } from '../../lib/utils'
 
 const SERVICE_TYPES = [
@@ -51,6 +52,14 @@ export default function ContactDetail() {
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+
+  const handleGmailSyncComplete = (newActivities) => {
+    // Refresh activities when sync completes
+    if (newActivities && newActivities.length > 0) {
+      // You can trigger a refetch or update local state here
+      console.log('Gmail sync completed:', newActivities)
+    }
+  }
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }))
 
@@ -191,6 +200,18 @@ export default function ContactDetail() {
           onDeleteTask={handleDeleteTask}
         />
       </Card>
+
+      {/* Gmail Sync */}
+      {contact.email && (
+        <Card>
+          <CardHeader title="Email Sync" />
+          <GmailSync
+            contactId={id}
+            contactEmail={contact.email}
+            onSyncComplete={handleGmailSyncComplete}
+          />
+        </Card>
+      )}
 
       {/* Activity Timeline */}
       <Card>
