@@ -2,11 +2,15 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Mail, Phone, MapPin, Trash2, AlertCircle } from 'lucide-react'
 import { useContact } from '../../hooks/useContacts'
+import { useActivityLog } from '../../hooks/useActivityLog'
+import { useTasks } from '../../hooks/useTasks'
 import Card, { CardHeader } from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import FormInput, { FormSelect, FormTextarea } from '../../components/ui/FormInput'
+import ActivityTimeline from '../../components/ActivityTimeline'
+import TaskList from '../../components/TaskList'
 import { formatDatetime } from '../../lib/utils'
 
 const SERVICE_TYPES = [
@@ -39,6 +43,8 @@ export default function ContactDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { contact, loading, error, update, remove } = useContact(id)
+  const { activities, create: createActivity } = useActivityLog(id, null, null)
+  const { tasks, create: createTask, update: updateTask, remove: removeTask } = useTasks(id, null, null)
   const [editModal, setEditModal] = useState(false)
   const [deleteModal, setDeleteModal] = useState(false)
   const [convertModal, setConvertModal] = useState(false)
@@ -72,6 +78,30 @@ export default function ContactDetail() {
       setSaveError(error.message)
     } else {
       navigate('/contacts')
+    }
+  }
+
+  const handleCreateTask = async (taskData) => {
+    try {
+      await createTask(taskData)
+    } catch (err) {
+      console.error('Error creating task:', err)
+    }
+  }
+
+  const handleCompleteTask = async (taskId, newStatus) => {
+    try {
+      await updateTask(taskId, { status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null })
+    } catch (err) {
+      console.error('Error updating task:', err)
+    }
+  }
+
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await removeTask(taskId)
+    } catch (err) {
+      console.error('Error deleting task:', err)
     }
   }
 
@@ -150,6 +180,23 @@ export default function ContactDetail() {
           </div>
         </Card>
       </div>
+
+      {/* Tasks */}
+      <Card>
+        <CardHeader title="Tasks & Follow-ups" />
+        <TaskList
+          tasks={tasks}
+          onCreateTask={handleCreateTask}
+          onCompleteTask={handleCompleteTask}
+          onDeleteTask={handleDeleteTask}
+        />
+      </Card>
+
+      {/* Activity Timeline */}
+      <Card>
+        <CardHeader title="Activity & Emails" />
+        <ActivityTimeline activities={activities} />
+      </Card>
 
       {/* Edit Modal */}
       <Modal open={editModal} onClose={() => setEditModal(false)} title="Edit Contact">

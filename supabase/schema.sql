@@ -263,3 +263,64 @@ CREATE INDEX idx_job_items_job_id ON job_items(job_id);
 ALTER TABLE jobs DROP CONSTRAINT IF EXISTS jobs_status_check;
 ALTER TABLE jobs ADD CONSTRAINT jobs_status_check
   CHECK (status IN ('ordered', 'in_production', 'ready_to_install', 'scheduled', 'in_progress', 'completed', 'cancelled'));
+
+-- ============================================================
+-- ACTIVITY LOG TABLE
+-- Track all interactions with contacts/leads/customers
+-- Types: email, call, meeting, note, conversion
+-- ============================================================
+
+CREATE TABLE activity_logs (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  contact_id        UUID REFERENCES contacts(id) ON DELETE CASCADE,
+  lead_id           UUID REFERENCES leads(id) ON DELETE CASCADE,
+  customer_id       UUID REFERENCES customers(id) ON DELETE CASCADE,
+  activity_type     TEXT NOT NULL CHECK (activity_type IN ('email', 'call', 'meeting', 'note', 'conversion', 'contact_created')),
+  subject           TEXT,
+  description       TEXT,
+  email_thread_id   TEXT,
+  created_by        TEXT,
+  metadata          JSONB
+);
+
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users only" ON activity_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE INDEX idx_activity_logs_contact_id   ON activity_logs(contact_id);
+CREATE INDEX idx_activity_logs_lead_id      ON activity_logs(lead_id);
+CREATE INDEX idx_activity_logs_customer_id  ON activity_logs(customer_id);
+CREATE INDEX idx_activity_logs_activity_type ON activity_logs(activity_type);
+CREATE INDEX idx_activity_logs_created_at   ON activity_logs(created_at DESC);
+
+-- ============================================================
+-- TASKS TABLE
+-- Follow-ups, reminders, and action items
+-- ============================================================
+
+CREATE TABLE tasks (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  due_date          DATE,
+  due_time          TIME,
+  contact_id        UUID REFERENCES contacts(id) ON DELETE CASCADE,
+  lead_id           UUID REFERENCES leads(id) ON DELETE CASCADE,
+  customer_id       UUID REFERENCES customers(id) ON DELETE CASCADE,
+  title             TEXT NOT NULL,
+  description       TEXT,
+  status            TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+  priority          TEXT DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+  assigned_to       TEXT,
+  calendar_event_id TEXT,
+  completed_at      TIMESTAMPTZ
+);
+
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users only" ON tasks FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE INDEX idx_tasks_contact_id   ON tasks(contact_id);
+CREATE INDEX idx_tasks_lead_id      ON tasks(lead_id);
+CREATE INDEX idx_tasks_customer_id  ON tasks(customer_id);
+CREATE INDEX idx_tasks_status       ON tasks(status);
+CREATE INDEX idx_tasks_due_date     ON tasks(due_date);
+CREATE INDEX idx_tasks_priority     ON tasks(priority);
