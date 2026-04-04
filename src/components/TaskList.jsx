@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle2, Circle, Trash2, Plus, AlertCircle } from 'lucide-react';
-import Button from './Button';
-import Modal from './Modal';
+import Button from './ui/Button';
+import Modal from './ui/Modal';
 
 const TaskList = ({ tasks = [], onCreateTask, onCompleteTask, onDeleteTask, loading = false }) => {
   const [showNewTask, setShowNewTask] = useState(false);

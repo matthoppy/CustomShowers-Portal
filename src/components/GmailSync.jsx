@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Loader, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
-import Button from './Button';
+import Button from './ui/Button';
 
 const GmailSync = ({ contactId, contactEmail, onSyncComplete }) => {
   const [syncing, setSyncing] = useState(false);

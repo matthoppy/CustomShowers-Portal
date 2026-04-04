@@ -114,6 +114,51 @@ export default function ContactDetail() {
     }
   }
 
+  const handleConvertToLead = async () => {
+    setSaving(true)
+    setSaveError('')
+    try {
+      // Create a new lead record from the contact
+      const leadData = {
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        address: contact.address,
+        service_type: contact.service_type,
+        message: contact.message,
+        source: contact.source,
+        converted_from_contact_id: contact.id,
+        status: 'new',
+        created_at: new Date().toISOString(),
+      }
+
+      // Call API to create lead
+      const response = await fetch('/api/contacts/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(leadData),
+      })
+
+      const result = await response.json()
+      if (!response.ok) {
+        setSaveError(result.error || 'Failed to convert contact to lead')
+        setSaving(false)
+        return
+      }
+
+      // On success, navigate to the new lead
+      if (result.lead_id) {
+        navigate(`/leads/${result.lead_id}`)
+      } else {
+        navigate('/leads')
+      }
+    } catch (err) {
+      console.error('Error converting contact:', err)
+      setSaveError(err.message)
+      setSaving(false)
+    }
+  }
+
   if (loading) return <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
   if (error || !contact) return <div className="text-red-600 py-10 text-center">{error || 'Contact not found'}</div>
 
@@ -243,22 +288,24 @@ export default function ContactDetail() {
 
       {/* Convert to Lead Modal */}
       <Modal open={convertModal} onClose={() => setConvertModal(false)} title="Convert to Lead">
-        <p className="text-sm text-slate-600 mb-4">This will create a new lead and customer record from this contact information.</p>
-        <div className="bg-slate-50 rounded-lg px-4 py-3 text-sm mb-4">
-          <p className="font-medium text-slate-800">{contact.name}</p>
-          {contact.email && <p className="text-slate-500">{contact.email}</p>}
-          {contact.phone && <p className="text-slate-500">{contact.phone}</p>}
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setConvertModal(false)}>Cancel</Button>
-          <Button
-            onClick={() => {
-              setConvertModal(false)
-              navigate('/contacts')
-            }}
-          >
-            Proceed to Convert
-          </Button>
+        <div className="space-y-4">
+          {saveError && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{saveError}</p>}
+          <p className="text-sm text-slate-600">This will create a new lead record from this contact information.</p>
+          <div className="bg-slate-50 rounded-lg px-4 py-3 text-sm">
+            <p className="font-medium text-slate-800">{contact.name}</p>
+            {contact.email && <p className="text-slate-500">{contact.email}</p>}
+            {contact.phone && <p className="text-slate-500">{contact.phone}</p>}
+            {contact.service_type && <p className="text-slate-500">{contact.service_type}</p>}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setConvertModal(false)} type="button" disabled={saving}>Cancel</Button>
+            <Button
+              onClick={handleConvertToLead}
+              disabled={saving}
+            >
+              {saving ? 'Converting...' : 'Proceed to Convert'}
+            </Button>
+          </div>
         </div>
       </Modal>
 
